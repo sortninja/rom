@@ -99,6 +99,22 @@ export default function ProjectExport() {
             costBreakdown.storage = storageCost;
         }
 
+        // Controls & Electrical Cost
+        if (moduleData.controls?.panels) {
+            const controlsCost = moduleData.controls.panels.reduce((sum, panel) =>
+                sum + (panel.quantity * panel.unitCost), 0);
+            totalCost += controlsCost;
+            costBreakdown.controls = controlsCost;
+        }
+
+        // Software Systems Cost
+        if (moduleData.software?.applications) {
+            const softwareCost = moduleData.software.applications.reduce((sum, application) =>
+                sum + application.annualCost, 0);
+            totalCost += softwareCost;
+            costBreakdown.software = softwareCost;
+        }
+
         return { total: totalCost, breakdown: costBreakdown };
     };
 

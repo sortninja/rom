@@ -5,6 +5,8 @@ import OperationalDataForm from '../components/modules/OperationalDataForm';
 import RoboticSystemsForm from '../components/modules/RoboticSystemsForm';
 import ConveyanceSystemsForm from '../components/modules/ConveyanceSystemsForm';
 import StorageInfrastructureForm from '../components/modules/StorageInfrastructureForm';
+import ControlsElectricalForm from '../components/modules/ControlsElectricalForm';
+import SoftwareSystemsForm from '../components/modules/SoftwareSystemsForm';
 import { AlertTriangle } from 'lucide-react';
 
 export default function Configuration() {
@@ -34,6 +36,10 @@ export default function Configuration() {
                 return <ConveyanceSystemsForm />;
             case 'storage':
                 return <StorageInfrastructureForm />;
+            case 'controls':
+                return <ControlsElectricalForm />;
+            case 'software':
+                return <SoftwareSystemsForm />;
             default:
                 // Placeholder for other modules
                 return (
