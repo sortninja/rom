@@ -138,4 +138,4 @@ cd rom
 VITE_BASE_PATH=/rom/ npm run build
 ```
 
-And make sure your reverse proxy forwards that same prefix. ROM now reads `VITE_BASE_PATH` in Vite config and automatically aligns React Router's `basename` with that base path.
+And make sure your reverse proxy forwards that same prefix. ROM now reads `VITE_BASE_PATH` in Vite config and automatically aligns React Router's `basename` with that base path. If you omit a leading or trailing slash (`rom` or `/rom`), ROM normalizes it to `/rom/`.

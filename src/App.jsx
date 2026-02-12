@@ -9,7 +9,8 @@ import Export from './pages/Export';
 // Placeholder pages
 const Dashboard = () => <div className="card text-h2">Project Dashboard</div>;
 
-const routerBase = import.meta.env.BASE_URL || '/';
+const baseUrl = import.meta.env.BASE_URL || '/';
+const routerBase = baseUrl === '/' ? '/' : baseUrl.replace(/\/$/, '');
 
 function App() {
     return (
