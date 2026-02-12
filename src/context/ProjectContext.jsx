@@ -44,6 +44,16 @@ const initialState = {
       zones: [
         { id: 1, type: 'Selective Racking', positions: 5000, height: 30, aisleWidth: 10 },
       ]
+    },
+    controls: {
+      panels: [
+        { id: 1, name: 'Main PLC Panel', panelType: 'PLC Panel', quantity: 1, ioCount: 128, unitCost: 28000 },
+      ]
+    },
+    software: {
+      applications: [
+        { id: 1, name: 'Warehouse Control', category: 'WCS', licenseType: 'Annual Subscription', seats: 10, annualCost: 85000 },
+      ]
     }
   },
   assumptions: [],
