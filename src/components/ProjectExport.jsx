@@ -5,7 +5,7 @@ import { Download, FileText } from 'lucide-react';
 
 export default function ProjectExport() {
     const { state } = useProject();
-    const { projectInfo, modules, moduleData } = state;
+    const { projectInfo, modules, moduleData, assumptions, requirements, requirementsDocument } = state;
 
     const generateProjectSummary = () => {
         const selectedModules = MODULE_DEFINITIONS.filter(m => modules[m.id]);
@@ -19,6 +19,9 @@ export default function ProjectExport() {
                 data: moduleData[module.id] || {}
             })),
             totalModules: selectedModules.length,
+            assumptions,
+            requirements,
+            requirementsDocument,
             sourcingBreakdown: {
                 buyout: selectedModules.filter(m => modules[m.id]?.sourcing === 'Buyout').length,
                 inHouse: selectedModules.filter(m => modules[m.id]?.sourcing === 'In-House').length,
@@ -222,6 +225,45 @@ export default function ProjectExport() {
                     </div>
                 </div>
             )}
+
+
+
+            <div className="mt-lg grid gap-lg" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div>
+                    <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Assumptions</h3>
+                    <div className="card" style={{ background: 'var(--color-bg-body)' }}>
+                        <div style={{ marginBottom: 'var(--space-sm)' }}><strong>Total:</strong> {assumptions.length}</div>
+                        {assumptions.length === 0 ? (
+                            <span className="text-small">No assumptions captured.</span>
+                        ) : (
+                            assumptions.slice(0, 3).map((assumption) => (
+                                <div key={assumption.id} className="text-small" style={{ marginBottom: 'var(--space-xs)' }}>
+                                    • {assumption.statement}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Requirements</h3>
+                    <div className="card" style={{ background: 'var(--color-bg-body)' }}>
+                        <div style={{ marginBottom: 'var(--space-sm)' }}><strong>Total:</strong> {requirements.length}</div>
+                        <div className="text-small" style={{ marginBottom: 'var(--space-sm)' }}>
+                            <strong>Document:</strong> {requirementsDocument?.name || 'None uploaded'}
+                        </div>
+                        {requirements.length === 0 ? (
+                            <span className="text-small">No requirements captured.</span>
+                        ) : (
+                            requirements.slice(0, 3).map((requirement) => (
+                                <div key={requirement.id} className="text-small" style={{ marginBottom: 'var(--space-xs)' }}>
+                                    • {requirement.text}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
 
             <div className="mt-lg">
                 <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Selected Modules</h3>
