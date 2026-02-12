@@ -125,3 +125,17 @@ Common causes:
 
 This repo uses `--strictPort` in `dev:host`/`preview:host`. Either stop whatever is using the port, or edit the scripts in [`rom/package.json`](../package.json:1) to use a different port.
 
+### Blank white page in browser
+
+If HTML loads but the app stays blank, check the browser devtools Network tab for 404s on `/assets/...`.
+
+This usually means ROM is being served from a **sub-path** (for example `http://host/rom/`) while Vite was built with the default root base (`/`).
+
+Build with a matching base path:
+
+```bash
+cd rom
+VITE_BASE_PATH=/rom/ npm run build
+```
+
+And make sure your reverse proxy forwards that same prefix. ROM now reads `VITE_BASE_PATH` in Vite config and automatically aligns React Router's `basename` with that base path.

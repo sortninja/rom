@@ -9,9 +9,11 @@ import Export from './pages/Export';
 // Placeholder pages
 const Dashboard = () => <div className="card text-h2">Project Dashboard</div>;
 
+const routerBase = import.meta.env.BASE_URL || '/';
+
 function App() {
     return (
-        <BrowserRouter>
+        <BrowserRouter basename={routerBase}>
             <Routes>
                 <Route path="/" element={<MainLayout />}>
                     <Route index element={<Dashboard />} />
