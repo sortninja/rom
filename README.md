@@ -38,6 +38,10 @@ npm run dev
 npm run build
 ```
 
+## 🧰 Running on an LXC
+
+For an Ubuntu LXC setup (no Docker), including how to bind Vite to `0.0.0.0` so it is reachable from your LAN, see [`rom/docs/LXC.md`](docs/LXC.md:1).
+
 ## 📖 Documentation
 
 For detailed documentation, see [ROM_SYSTEM_DOCUMENTATION.md](ROM_SYSTEM_DOCUMENTATION.md)

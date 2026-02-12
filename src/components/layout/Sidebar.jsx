@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, layers, Settings, FileText, CheckSquare, Database } from 'lucide-react';
+import { LayoutDashboard, Layers, Settings, FileText, CheckSquare, Database } from 'lucide-react';
 
 export default function Sidebar({ isOpen }) {
     const width = isOpen ? '240px' : '64px';
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { icon: layers, label: 'Modules', path: '/modules' },
+        { icon: Layers, label: 'Modules', path: '/modules' },
         { icon: Settings, label: 'Configuration', path: '/configuration' },
         { icon: FileText, label: 'Export', path: '/export' },
         { icon: Database, label: 'Assumptions', path: '/assumptions' },
