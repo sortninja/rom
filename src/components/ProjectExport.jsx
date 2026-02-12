@@ -1,6 +1,7 @@
 import React from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
+import { calculateConveyanceHardwareCost } from '../utils/costs';
 import { Download, FileText } from 'lucide-react';
 
 export default function ProjectExport() {
@@ -84,10 +85,7 @@ export default function ProjectExport() {
 
         // Conveyance Systems Cost
         if (moduleData.conveyance?.segments) {
-            const conveyanceCost = moduleData.conveyance.segments.reduce((sum, segment) => {
-                const costPerFoot = segment.type === 'MDR' ? 350 : segment.type === 'Gravity' ? 100 : 500;
-                return sum + (segment.length * costPerFoot);
-            }, 0);
+            const conveyanceCost = calculateConveyanceHardwareCost(moduleData.conveyance.segments);
             totalCost += conveyanceCost;
             costBreakdown.conveyance = conveyanceCost;
         }
