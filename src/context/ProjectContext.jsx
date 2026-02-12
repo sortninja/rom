@@ -64,6 +64,7 @@ const initialState = {
   },
   assumptions: [],
   requirements: [],
+  requirementsDocument: null,
 };
 
 function projectReducer(state, action) {
@@ -103,6 +104,27 @@ function projectReducer(state, action) {
 
     case 'ADD_ASSUMPTION':
       return { ...state, assumptions: [...state.assumptions, action.payload] };
+
+    case 'REMOVE_ASSUMPTION':
+      return {
+        ...state,
+        assumptions: state.assumptions.filter((assumption) => assumption.id !== action.payload),
+      };
+
+    case 'ADD_REQUIREMENT':
+      return { ...state, requirements: [...state.requirements, action.payload] };
+
+    case 'REMOVE_REQUIREMENT':
+      return {
+        ...state,
+        requirements: state.requirements.filter((requirement) => requirement.id !== action.payload),
+      };
+
+    case 'SET_REQUIREMENTS_DOCUMENT':
+      return {
+        ...state,
+        requirementsDocument: action.payload,
+      };
 
     case 'UPDATE_MODULE_DATA': {
       const { moduleId, data } = action.payload;
