@@ -9,7 +9,8 @@ const initialState = {
     status: 'DRAFT',
   },
   modules: {
-    // Will be populated by module definitions
+    operational_data: { id: 'operational_data', selected: true, sourcing: 'In-House' },
+    implementation: { id: 'implementation', selected: true, sourcing: 'In-House' },
   },
   moduleData: {
     // Store form data for each module
@@ -53,6 +54,11 @@ const initialState = {
     software: {
       applications: [
         { id: 1, name: 'Warehouse Control', category: 'WCS', licenseType: 'Annual Subscription', seats: 10, annualCost: 85000 },
+      ]
+    },
+    implementation: {
+      services: [
+        { id: 1, phase: 'Project Management', resourceType: 'PM', hours: 120, hourlyRate: 145 },
       ]
     }
   },

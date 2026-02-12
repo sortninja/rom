@@ -115,6 +115,14 @@ export default function ProjectExport() {
             costBreakdown.software = softwareCost;
         }
 
+        // Implementation Services Cost
+        if (moduleData.implementation?.services) {
+            const implementationCost = moduleData.implementation.services.reduce((sum, service) =>
+                sum + (service.hours * service.hourlyRate), 0);
+            totalCost += implementationCost;
+            costBreakdown.implementation = implementationCost;
+        }
+
         return { total: totalCost, breakdown: costBreakdown };
     };
 

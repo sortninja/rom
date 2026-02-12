@@ -7,6 +7,7 @@ import ConveyanceSystemsForm from '../components/modules/ConveyanceSystemsForm';
 import StorageInfrastructureForm from '../components/modules/StorageInfrastructureForm';
 import ControlsElectricalForm from '../components/modules/ControlsElectricalForm';
 import SoftwareSystemsForm from '../components/modules/SoftwareSystemsForm';
+import ImplementationServicesForm from '../components/modules/ImplementationServicesForm';
 import { AlertTriangle } from 'lucide-react';
 
 export default function Configuration() {
@@ -40,6 +41,8 @@ export default function Configuration() {
                 return <ControlsElectricalForm />;
             case 'software':
                 return <SoftwareSystemsForm />;
+            case 'implementation':
+                return <ImplementationServicesForm />;
             default:
                 // Placeholder for other modules
                 return (
