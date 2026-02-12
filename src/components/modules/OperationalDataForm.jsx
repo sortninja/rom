@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
-import { Save, Info } from 'lucide-react';
+import { Save, Info, AlertCircle } from 'lucide-react';
+import { validateOperationalData } from '../../utils/validation';
 
 export default function OperationalDataForm() {
     const { state, dispatch } = useProject();
+    const [errors, setErrors] = useState({});
     const formData = state.moduleData.operational_data || {
         throughput: {
             peakUnitsPerHour: 5000,
@@ -40,9 +42,22 @@ export default function OperationalDataForm() {
                 data: updatedData
             }
         });
+
+        if (Object.keys(errors).length > 0) {
+            setErrors(validateOperationalData(updatedData));
+        }
     };
 
     const handleSave = () => {
+        const validationErrors = validateOperationalData(formData);
+
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        setErrors({});
+
         dispatch({
             type: 'SET_MODULE_DATA',
             payload: {
@@ -50,9 +65,15 @@ export default function OperationalDataForm() {
                 data: formData
             }
         });
-        // Could add toast notification here
+
         console.log('Operational data saved:', formData);
     };
+
+    const inputStyle = (hasError) => ({
+        padding: 'var(--space-sm)',
+        borderRadius: 'var(--radius-sm)',
+        border: `1px solid ${hasError ? 'var(--color-danger)' : 'var(--color-border)'}`
+    });
 
     return (
         <div className="card">
@@ -75,9 +96,22 @@ export default function OperationalDataForm() {
                 </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
+            {Object.keys(errors).length > 0 && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)',
+                    marginBottom: 'var(--space-md)',
+                    color: 'var(--color-danger)'
+                }}>
+                    <AlertCircle size={16} />
+                    <span className="text-small" style={{ color: 'var(--color-danger)' }}>
+                        Please resolve validation errors before saving.
+                    </span>
+                </div>
+            )}
 
-                {/* Throughput Section */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
                 <section>
                     <h3 className="flex items-center gap-md" style={{ marginBottom: 'var(--space-md)' }}>
                         Throughput Targets
@@ -90,8 +124,11 @@ export default function OperationalDataForm() {
                                 type="number"
                                 value={formData.throughput.peakUnitsPerHour}
                                 onChange={(e) => handleChange('throughput', 'peakUnitsPerHour', e.target.value)}
-                                style={{ padding: 'var(--space-sm)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
+                                style={inputStyle(Boolean(errors.peakUnitsPerHour))}
                             />
+                            {errors.peakUnitsPerHour && (
+                                <span className="text-small" style={{ color: 'var(--color-danger)' }}>{errors.peakUnitsPerHour}</span>
+                            )}
                         </div>
                         <div className="flex flex-col gap-xs">
                             <label className="text-small">Average Units / Hour</label>
@@ -99,13 +136,15 @@ export default function OperationalDataForm() {
                                 type="number"
                                 value={formData.throughput.averageUnitsPerHour}
                                 onChange={(e) => handleChange('throughput', 'averageUnitsPerHour', e.target.value)}
-                                style={{ padding: 'var(--space-sm)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
+                                style={inputStyle(Boolean(errors.averageUnitsPerHour))}
                             />
+                            {errors.averageUnitsPerHour && (
+                                <span className="text-small" style={{ color: 'var(--color-danger)' }}>{errors.averageUnitsPerHour}</span>
+                            )}
                         </div>
                     </div>
                 </section>
 
-                {/* Operating Hours Section */}
                 <section>
                     <h3 className="flex items-center gap-md" style={{ marginBottom: 'var(--space-md)' }}>
                         Operating Schedule
@@ -117,12 +156,15 @@ export default function OperationalDataForm() {
                             <select
                                 value={formData.operatingHours.shiftsPerDay}
                                 onChange={(e) => handleChange('operatingHours', 'shiftsPerDay', e.target.value)}
-                                style={{ padding: 'var(--space-sm)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
+                                style={inputStyle(Boolean(errors.shiftsPerDay))}
                             >
                                 <option value="1">1 Shift</option>
                                 <option value="2">2 Shifts</option>
                                 <option value="3">3 Shifts</option>
                             </select>
+                            {errors.shiftsPerDay && (
+                                <span className="text-small" style={{ color: 'var(--color-danger)' }}>{errors.shiftsPerDay}</span>
+                            )}
                         </div>
                         <div className="flex flex-col gap-xs">
                             <label className="text-small">Days / Week</label>
@@ -132,8 +174,11 @@ export default function OperationalDataForm() {
                                 min="1"
                                 value={formData.operatingHours.daysPerWeek}
                                 onChange={(e) => handleChange('operatingHours', 'daysPerWeek', e.target.value)}
-                                style={{ padding: 'var(--space-sm)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}
+                                style={inputStyle(Boolean(errors.daysPerWeek))}
                             />
+                            {errors.daysPerWeek && (
+                                <span className="text-small" style={{ color: 'var(--color-danger)' }}>{errors.daysPerWeek}</span>
+                            )}
                         </div>
                     </div>
                 </section>
