@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { calculateRoboticsHardwareCost } from '../../utils/costs';
+import { validateRobotFleet } from '../../utils/validation';
 
 export default function RoboticSystemsForm() {
     const { state, dispatch } = useProject();
+    const [rowErrors, setRowErrors] = useState([]);
     const moduleConfig = state.modules['robotic_systems'];
     const sourcing = moduleConfig?.sourcing || 'Buyout';
 
@@ -18,6 +21,10 @@ export default function RoboticSystemsForm() {
                 data: newData
             }
         });
+
+        if (rowErrors.length > 0) {
+            setRowErrors(validateRobotFleet(newData.robots));
+        }
     };
 
     const addRobot = () => {
@@ -35,11 +42,18 @@ export default function RoboticSystemsForm() {
     };
 
     const handleSave = () => {
+        const validationErrors = validateRobotFleet(robots);
+
+        if (validationErrors.some(Boolean)) {
+            setRowErrors(validationErrors);
+            return;
+        }
+
+        setRowErrors([]);
         console.log('Robotic systems data saved:', { robots });
-        // Could add toast notification here
     };
 
-    const totalHardwareCost = robots.reduce((sum, r) => sum + (r.quantity * r.unitCost), 0);
+    const totalHardwareCost = calculateRoboticsHardwareCost(robots);
 
     return (
         <div className="card">
@@ -72,6 +86,21 @@ export default function RoboticSystemsForm() {
                 </button>
             </div>
 
+            {rowErrors.some(Boolean) && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)',
+                    marginBottom: 'var(--space-md)',
+                    color: 'var(--color-danger)'
+                }}>
+                    <AlertCircle size={16} />
+                    <span className="text-small" style={{ color: 'var(--color-danger)' }}>
+                        Please resolve robot fleet validation errors before saving.
+                    </span>
+                </div>
+            )}
+
             <div className="mb-6">
                 <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Robot Fleet</h3>
 
@@ -87,54 +116,79 @@ export default function RoboticSystemsForm() {
                         </tr>
                     </thead>
                     <tbody>
-                        {robots.map(robot => (
-                            <tr key={robot.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <select
-                                        value={robot.type}
-                                        onChange={(e) => updateRobot(robot.id, 'type', e.target.value)}
-                                        style={{ padding: '4px', width: '100%' }}
-                                    >
-                                        <option value="AMR">AMR (Transport)</option>
-                                        <option value="Arm">Articulated Arm</option>
-                                        <option value="ASRS">ASRS Shuttle</option>
-                                    </select>
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="text"
-                                        value={robot.vendor}
-                                        onChange={(e) => updateRobot(robot.id, 'vendor', e.target.value)}
-                                        placeholder="e.g. Fanuc"
-                                        style={{ padding: '4px', width: '100%' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={robot.quantity}
-                                        onChange={(e) => updateRobot(robot.id, 'quantity', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '60px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={robot.unitCost}
-                                        onChange={(e) => updateRobot(robot.id, 'unitCost', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '100px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    ${(robot.quantity * robot.unitCost).toLocaleString()}
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <button onClick={() => removeRobot(robot.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
-                                        <Trash2 size={16} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {robots.map((robot, rowIndex) => {
+                            const rowError = rowErrors[rowIndex] || {};
+
+                            return (
+                                <tr key={robot.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <select
+                                            value={robot.type}
+                                            onChange={(e) => updateRobot(robot.id, 'type', e.target.value)}
+                                            style={{ padding: '4px', width: '100%' }}
+                                        >
+                                            <option value="AMR">AMR (Transport)</option>
+                                            <option value="Arm">Articulated Arm</option>
+                                            <option value="ASRS">ASRS Shuttle</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="text"
+                                            value={robot.vendor}
+                                            onChange={(e) => updateRobot(robot.id, 'vendor', e.target.value)}
+                                            placeholder="e.g. Fanuc"
+                                            style={{
+                                                padding: '4px',
+                                                width: '100%',
+                                                borderColor: rowError.vendor ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.vendor && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.vendor}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={robot.quantity}
+                                            onChange={(e) => updateRobot(robot.id, 'quantity', Number(e.target.value))}
+                                            style={{
+                                                padding: '4px',
+                                                width: '60px',
+                                                borderColor: rowError.quantity ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.quantity && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.quantity}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={robot.unitCost}
+                                            onChange={(e) => updateRobot(robot.id, 'unitCost', Number(e.target.value))}
+                                            style={{
+                                                padding: '4px',
+                                                width: '100px',
+                                                borderColor: rowError.unitCost ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.unitCost && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.unitCost}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        ${(robot.quantity * robot.unitCost).toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <button onClick={() => removeRobot(robot.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
 
