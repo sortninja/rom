@@ -4,6 +4,7 @@ import MainLayout from './components/layout/MainLayout';
 
 import ModuleSelection from './pages/ModuleSelection';
 import Configuration from './pages/Configuration';
+import Export from './pages/Export';
 
 // Placeholder pages
 const Dashboard = () => <div className="card text-h2">Project Dashboard</div>;
@@ -16,6 +17,7 @@ function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="modules" element={<ModuleSelection />} />
                     <Route path="configuration" element={<Configuration />} />
+                    <Route path="export" element={<Export />} />
                     {/* Add other routes */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

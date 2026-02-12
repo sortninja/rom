@@ -11,6 +11,41 @@ const initialState = {
   modules: {
     // Will be populated by module definitions
   },
+  moduleData: {
+    // Store form data for each module
+    operational_data: {
+      throughput: {
+        peakUnitsPerHour: 5000,
+        averageUnitsPerHour: 3500,
+        dailyOrderVolume: 12000,
+      },
+      operatingHours: {
+        shiftsPerDay: 2,
+        hoursPerShift: 8,
+        daysPerWeek: 5,
+      },
+      inventory: {
+        totalSKUs: 15000,
+        activeSKUs: 4000,
+        storageVolume: '10000 pallets',
+      }
+    },
+    robotic_systems: {
+      robots: [
+        { id: 1, type: 'AMR', quantity: 10, vendor: 'Fetch', unitCost: 35000 },
+      ]
+    },
+    conveyance: {
+      segments: [
+        { id: 1, type: 'MDR', length: 100, width: 24, zones: 10 },
+      ]
+    },
+    storage: {
+      zones: [
+        { id: 1, type: 'Selective Racking', positions: 5000, height: 30, aisleWidth: 10 },
+      ]
+    }
+  },
   assumptions: [],
   requirements: [],
 };
@@ -52,6 +87,31 @@ function projectReducer(state, action) {
 
     case 'ADD_ASSUMPTION':
       return { ...state, assumptions: [...state.assumptions, action.payload] };
+
+    case 'UPDATE_MODULE_DATA': {
+      const { moduleId, data } = action.payload;
+      return {
+        ...state,
+        moduleData: {
+          ...state.moduleData,
+          [moduleId]: {
+            ...state.moduleData[moduleId],
+            ...data
+          }
+        }
+      };
+    }
+
+    case 'SET_MODULE_DATA': {
+      const { moduleId, data } = action.payload;
+      return {
+        ...state,
+        moduleData: {
+          ...state.moduleData,
+          [moduleId]: data
+        }
+      };
+    }
     // Add more reducers as we implement features
     default:
       return state;

@@ -4,9 +4,7 @@ import { Save, Info } from 'lucide-react';
 
 export default function OperationalDataForm() {
     const { state, dispatch } = useProject();
-    // We'll need to store this data in context eventually
-    // For now, local state to demonstrate the form
-    const [formData, setFormData] = useState({
+    const formData = state.moduleData.operational_data || {
         throughput: {
             peakUnitsPerHour: 5000,
             averageUnitsPerHour: 3500,
@@ -22,29 +20,56 @@ export default function OperationalDataForm() {
             activeSKUs: 4000,
             storageVolume: '10000 pallets',
         }
-    });
+    };
 
     const handleChange = (section, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [section]: {
-                ...prev[section],
-                [field]: value
+        const updatedSection = {
+            ...formData[section],
+            [field]: value
+        };
+
+        const updatedData = {
+            ...formData,
+            [section]: updatedSection
+        };
+
+        dispatch({
+            type: 'UPDATE_MODULE_DATA',
+            payload: {
+                moduleId: 'operational_data',
+                data: updatedData
             }
-        }));
+        });
+    };
+
+    const handleSave = () => {
+        dispatch({
+            type: 'SET_MODULE_DATA',
+            payload: {
+                moduleId: 'operational_data',
+                data: formData
+            }
+        });
+        // Could add toast notification here
+        console.log('Operational data saved:', formData);
     };
 
     return (
         <div className="card">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-h2">Operational Data & Requirements</h2>
-                <button className="flex items-center gap-md" style={{
-                    background: 'var(--color-primary)',
-                    color: 'white',
-                    border: 'none',
-                    padding: 'var(--space-sm) var(--space-md)',
-                    borderRadius: 'var(--radius-md)'
-                }}>
+                <button
+                    onClick={handleSave}
+                    className="flex items-center gap-md"
+                    style={{
+                        background: 'var(--color-primary)',
+                        color: 'white',
+                        border: 'none',
+                        padding: 'var(--space-sm) var(--space-md)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer'
+                    }}
+                >
                     <Save size={20} />
                     Save Changes
                 </button>

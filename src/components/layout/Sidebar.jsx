@@ -9,9 +9,9 @@ export default function Sidebar({ isOpen }) {
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: layers, label: 'Modules', path: '/modules' },
         { icon: Settings, label: 'Configuration', path: '/configuration' },
+        { icon: FileText, label: 'Export', path: '/export' },
         { icon: Database, label: 'Assumptions', path: '/assumptions' },
         { icon: CheckSquare, label: 'Requirements', path: '/requirements' },
-        { icon: FileText, label: 'Quote', path: '/quote' },
     ];
 
     return (

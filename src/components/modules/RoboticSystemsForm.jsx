@@ -3,24 +3,40 @@ import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2 } from 'lucide-react';
 
 export default function RoboticSystemsForm() {
-    const { state } = useProject();
+    const { state, dispatch } = useProject();
     const moduleConfig = state.modules['robotic_systems'];
     const sourcing = moduleConfig?.sourcing || 'Buyout';
 
-    const [robots, setRobots] = useState([
-        { id: 1, type: 'AMR', quantity: 10, vendor: 'Fetch', unitCost: 35000 },
-    ]);
+    const moduleData = state.moduleData.robotic_systems || { robots: [] };
+    const robots = moduleData.robots;
+
+    const updateModuleData = (newData) => {
+        dispatch({
+            type: 'SET_MODULE_DATA',
+            payload: {
+                moduleId: 'robotic_systems',
+                data: newData
+            }
+        });
+    };
 
     const addRobot = () => {
-        setRobots([...robots, { id: Date.now(), type: 'AMR', quantity: 1, vendor: '', unitCost: 0 }]);
+        const newRobot = { id: Date.now(), type: 'AMR', quantity: 1, vendor: '', unitCost: 0 };
+        updateModuleData({ robots: [...robots, newRobot] });
     };
 
     const removeRobot = (id) => {
-        setRobots(robots.filter(r => r.id !== id));
+        updateModuleData({ robots: robots.filter(r => r.id !== id) });
     };
 
     const updateRobot = (id, field, value) => {
-        setRobots(robots.map(r => r.id === id ? { ...r, [field]: value } : r));
+        const updatedRobots = robots.map(r => r.id === id ? { ...r, [field]: value } : r);
+        updateModuleData({ robots: updatedRobots });
+    };
+
+    const handleSave = () => {
+        console.log('Robotic systems data saved:', { robots });
+        // Could add toast notification here
     };
 
     const totalHardwareCost = robots.reduce((sum, r) => sum + (r.quantity * r.unitCost), 0);
@@ -39,13 +55,18 @@ export default function RoboticSystemsForm() {
                         Strategy: <strong>{sourcing}</strong>
                     </span>
                 </div>
-                <button className="flex items-center gap-md" style={{
-                    background: 'var(--color-primary)',
-                    color: 'white',
-                    border: 'none',
-                    padding: 'var(--space-sm) var(--space-md)',
-                    borderRadius: 'var(--radius-md)'
-                }}>
+                <button
+                    onClick={handleSave}
+                    className="flex items-center gap-md"
+                    style={{
+                        background: 'var(--color-primary)',
+                        color: 'white',
+                        border: 'none',
+                        padding: 'var(--space-sm) var(--space-md)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer'
+                    }}
+                >
                     <Save size={20} />
                     Save
                 </button>
