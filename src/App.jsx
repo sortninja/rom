@@ -9,8 +9,20 @@ import Export from './pages/Export';
 // Placeholder pages
 const Dashboard = () => <div className="card text-h2">Project Dashboard</div>;
 
-const baseUrl = import.meta.env.BASE_URL || '/';
-const routerBase = baseUrl === '/' ? '/' : baseUrl.replace(/\/$/, '');
+const normalizeRouterBasename = (baseUrl) => {
+    if (!baseUrl || baseUrl === '/' || baseUrl === '.' || baseUrl === './') {
+        return '/';
+    }
+
+    try {
+        const { pathname } = new URL(baseUrl, 'http://localhost');
+        return pathname === '/' ? '/' : pathname.replace(/\/$/, '');
+    } catch {
+        return '/';
+    }
+};
+
+const routerBase = normalizeRouterBasename(import.meta.env.BASE_URL);
 
 function App() {
     return (
