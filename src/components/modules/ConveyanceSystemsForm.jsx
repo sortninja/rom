@@ -8,11 +8,13 @@ function hasValidationErrors(validationErrors = []) {
     return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
 }
 
+
 export default function ConveyanceSystemsForm() {
     const { state, dispatch } = useProject();
     const [errors, setErrors] = useState([]);
 
     const moduleConfig = state.modules.conveyance;
+    const moduleConfig = state.modules['conveyance'];
     const sourcing = moduleConfig?.sourcing || 'Buyout';
     const moduleData = state.moduleData.conveyance || {
         segments: [{ id: 1, type: 'MDR', length: 100, width: 24, zones: 10 }]
@@ -109,7 +111,7 @@ export default function ConveyanceSystemsForm() {
                 </button>
             </div>
 
-            {hasValidationErrors(errors) && (
+            {errors.length > 0 && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -171,7 +173,7 @@ export default function ConveyanceSystemsForm() {
                                         <input
                                             type="number"
                                             value={segment.length}
-                                            onChange={(e) => updateSegment(segment.id, 'length', e.target.value)}
+                                            onChange={(e) => updateSegment(segment.id, 'length', Number(e.target.value))}
                                             style={{
                                                 padding: '4px',
                                                 width: '80px',
@@ -186,7 +188,7 @@ export default function ConveyanceSystemsForm() {
                                         <input
                                             type="number"
                                             value={segment.zones}
-                                            onChange={(e) => updateSegment(segment.id, 'zones', e.target.value)}
+                                            onChange={(e) => updateSegment(segment.id, 'zones', Number(e.target.value))}
                                             style={{
                                                 padding: '4px',
                                                 width: '80px',
@@ -198,7 +200,7 @@ export default function ConveyanceSystemsForm() {
                                         )}
                                     </td>
                                     <td style={{ padding: 'var(--space-sm)' }}>
-                                        ${calculateConveyanceSegmentCost(segment).toLocaleString()}
+                                        ${(Number(segment.length || 0) * getConveyanceCostPerFoot(segment.type)).toLocaleString()}
                                     </td>
                                     <td style={{ padding: 'var(--space-sm)' }}>
                                         <button onClick={() => removeSegment(segment.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>

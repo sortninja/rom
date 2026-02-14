@@ -18,13 +18,11 @@ export function getConveyanceCostPerFoot(type) {
   return 500;
 }
 
-export function calculateConveyanceSegmentCost(segment = {}) {
-  const length = toNumber(segment.length);
-  const safeLength = Number.isFinite(length) ? Math.max(0, length) : 0;
-
-  return safeLength * getConveyanceCostPerFoot(segment.type);
-}
-
 export function calculateConveyanceHardwareCost(segments = []) {
-  return segments.reduce((total, segment) => total + calculateConveyanceSegmentCost(segment), 0);
+  return segments.reduce((total, segment) => {
+    const length = toNumber(segment.length);
+    const safeLength = Number.isFinite(length) ? Math.max(0, length) : 0;
+
+    return total + safeLength * getConveyanceCostPerFoot(segment.type);
+  }, 0);
 }
