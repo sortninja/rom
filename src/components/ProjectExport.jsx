@@ -1,7 +1,7 @@
 import React from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { calculateConveyanceHardwareCost } from '../utils/costs';
+import { calculateConveyanceHardwareCost, calculateRoboticsHardwareCost } from '../utils/costs';
 import { Download, FileText } from 'lucide-react';
 
 export default function ProjectExport() {
@@ -77,8 +77,7 @@ export default function ProjectExport() {
 
         // Robotic Systems Cost
         if (moduleData.robotic_systems?.robots) {
-            const robotCost = moduleData.robotic_systems.robots.reduce((sum, robot) =>
-                sum + (robot.quantity * robot.unitCost), 0);
+            const robotCost = calculateRoboticsHardwareCost(moduleData.robotic_systems.robots);
             totalCost += robotCost;
             costBreakdown.robotic_systems = robotCost;
         }

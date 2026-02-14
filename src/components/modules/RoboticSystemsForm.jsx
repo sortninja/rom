@@ -50,7 +50,6 @@ export default function RoboticSystemsForm() {
         }
 
         setRowErrors([]);
-        console.log('Robotic systems data saved:', { robots });
     };
 
     const totalHardwareCost = calculateRoboticsHardwareCost(robots);
