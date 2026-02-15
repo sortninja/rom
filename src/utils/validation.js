@@ -70,3 +70,27 @@ export function validateRobotFleet(robots = []) {
 
   return errors;
 }
+
+export function validateConveyanceSegments(segments = []) {
+  const errors = [];
+
+  segments.forEach((segment, index) => {
+    const rowErrors = {};
+    const length = toNumber(segment.length);
+    const zones = toNumber(segment.zones);
+
+    if (!Number.isInteger(length) || length < 1) {
+      rowErrors.length = 'Length must be a whole number greater than 0.';
+    }
+
+    if (!Number.isInteger(zones) || zones < 1) {
+      rowErrors.zones = 'Zones must be a whole number greater than 0.';
+    }
+
+    if (Object.keys(rowErrors).length > 0) {
+      errors[index] = rowErrors;
+    }
+  });
+
+  return errors;
+}
