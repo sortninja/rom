@@ -94,3 +94,117 @@ export function validateConveyanceSegments(segments = []) {
 
   return errors;
 }
+
+export function validateStorageZones(zones = []) {
+  const errors = [];
+
+  zones.forEach((zone, index) => {
+    const rowErrors = {};
+    const positions = toNumber(zone.positions);
+    const height = toNumber(zone.height);
+    const aisleWidth = toNumber(zone.aisleWidth);
+
+    if (!Number.isInteger(positions) || positions < 1) {
+      rowErrors.positions = 'Pallet positions must be a whole number greater than 0.';
+    }
+
+    if (!Number.isFinite(height) || height <= 0) {
+      rowErrors.height = 'Height must be greater than 0.';
+    }
+
+    if (!Number.isFinite(aisleWidth) || aisleWidth <= 0) {
+      rowErrors.aisleWidth = 'Aisle width must be greater than 0.';
+    }
+
+    if (Object.keys(rowErrors).length > 0) {
+      errors[index] = rowErrors;
+    }
+  });
+
+  return errors;
+}
+
+export function validateControlPanels(panels = []) {
+  const errors = [];
+
+  panels.forEach((panel, index) => {
+    const rowErrors = {};
+    const quantity = toNumber(panel.quantity);
+    const ioCount = toNumber(panel.ioCount);
+    const unitCost = toNumber(panel.unitCost);
+
+    if (!panel.name || panel.name.trim().length === 0) {
+      rowErrors.name = 'Panel name is required.';
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      rowErrors.quantity = 'Quantity must be a whole number greater than 0.';
+    }
+
+    if (!Number.isInteger(ioCount) || ioCount < 0) {
+      rowErrors.ioCount = 'I/O count must be a whole number 0 or greater.';
+    }
+
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      rowErrors.unitCost = 'Unit cost must be 0 or greater.';
+    }
+
+    if (Object.keys(rowErrors).length > 0) {
+      errors[index] = rowErrors;
+    }
+  });
+
+  return errors;
+}
+
+export function validateSoftwareApplications(applications = []) {
+  const errors = [];
+
+  applications.forEach((application, index) => {
+    const rowErrors = {};
+    const seats = toNumber(application.seats);
+    const annualCost = toNumber(application.annualCost);
+
+    if (!application.name || application.name.trim().length === 0) {
+      rowErrors.name = 'Application name is required.';
+    }
+
+    if (!Number.isInteger(seats) || seats < 1) {
+      rowErrors.seats = 'Seats must be a whole number greater than 0.';
+    }
+
+    if (!Number.isFinite(annualCost) || annualCost < 0) {
+      rowErrors.annualCost = 'Annual cost must be 0 or greater.';
+    }
+
+    if (Object.keys(rowErrors).length > 0) {
+      errors[index] = rowErrors;
+    }
+  });
+
+  return errors;
+}
+
+export function validateImplementationServices(services = []) {
+  const errors = [];
+
+  services.forEach((service, index) => {
+    const rowErrors = {};
+    const hours = toNumber(service.hours);
+    const hourlyRate = toNumber(service.hourlyRate);
+
+    if (!Number.isFinite(hours) || hours <= 0) {
+      rowErrors.hours = 'Hours must be greater than 0.';
+    }
+
+    if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
+      rowErrors.hourlyRate = 'Hourly rate must be 0 or greater.';
+    }
+
+    if (Object.keys(rowErrors).length > 0) {
+      errors[index] = rowErrors;
+    }
+  });
+
+  return errors;
+}
