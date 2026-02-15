@@ -1,12 +1,7 @@
 import React from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import {
-    calculateConveyanceHardwareCost,
-    calculateRoboticsHardwareCost,
-    calculateStorageInfrastructureCost,
-    calculateControlsElectricalCost
-} from '../utils/costs';
+import { calculateConveyanceHardwareCost } from '../utils/costs';
 import { Download, FileText } from 'lucide-react';
 
 export default function ProjectExport() {
