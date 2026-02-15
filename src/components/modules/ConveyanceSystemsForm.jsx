@@ -217,7 +217,7 @@ export default function ConveyanceSystemsForm() {
             <div style={{ padding: 'var(--space-md)', background: 'var(--color-bg-body)', borderRadius: 'var(--radius-md)' }}>
                 <div className="flex justify-between items-center mb-sm">
                     <span>Total Length:</span>
-                    <strong>{totalLength} ft</strong>
+                    <strong>{totalLength.toLocaleString()} ft</strong>
                 </div>
                 <div className="flex justify-between items-center">
                     <span>Estimated Hardware Cost:</span>
