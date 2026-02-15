@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { calculateImplementationServiceCost, calculateImplementationServicesCost } from '../../utils/costs';
-import { toNumber, validateImplementationServices, hasRowErrors } from '../../utils/validation';
+import { toNumber, validateImplementationServices } from '../../utils/validation';
+
+function hasValidationErrors(validationErrors = []) {
+    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
+}
 
 export default function ImplementationServicesForm() {
     const { state, dispatch } = useProject();
@@ -22,7 +26,7 @@ export default function ImplementationServicesForm() {
             }
         });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateImplementationServices(newData.services));
         }
     };
@@ -50,7 +54,7 @@ export default function ImplementationServicesForm() {
     const handleSave = () => {
         const validationErrors = validateImplementationServices(services);
 
-        if (hasRowErrors(validationErrors)) {
+        if (hasValidationErrors(validationErrors)) {
             setErrors(validationErrors);
             return;
         }
@@ -95,7 +99,7 @@ export default function ImplementationServicesForm() {
                 </button>
             </div>
 
-            {hasRowErrors(errors) && (
+            {hasValidationErrors(errors) && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',

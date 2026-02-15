@@ -1,9 +1,7 @@
 import React from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import {
-    calculateProjectCostEstimate
-} from '../utils/costs';
+import { calculateConveyanceHardwareCost } from '../utils/costs';
 import { Download, FileText } from 'lucide-react';
 
 export default function ProjectExport() {
@@ -74,7 +72,52 @@ export default function ProjectExport() {
     };
 
     const generateCostEstimate = () => {
-        return calculateProjectCostEstimate(moduleData);
+        let totalCost = 0;
+        const costBreakdown = {};
+
+        // Robotic Systems Cost
+        if (moduleData.robotic_systems?.robots) {
+            const robotCost = calculateRoboticsHardwareCost(moduleData.robotic_systems.robots);
+            totalCost += robotCost;
+            costBreakdown.robotic_systems = robotCost;
+        }
+
+        // Conveyance Systems Cost
+        if (moduleData.conveyance?.segments) {
+            const conveyanceCost = calculateConveyanceHardwareCost(moduleData.conveyance.segments);
+            totalCost += conveyanceCost;
+            costBreakdown.conveyance = conveyanceCost;
+        }
+
+        // Storage Infrastructure Cost
+        if (moduleData.storage?.zones) {
+            const storageCost = calculateStorageInfrastructureCost(moduleData.storage.zones);
+            totalCost += storageCost;
+            costBreakdown.storage = storageCost;
+        }
+
+        // Controls & Electrical Cost
+        if (moduleData.controls?.panels) {
+            const controlsCost = calculateControlsElectricalCost(moduleData.controls.panels);
+            totalCost += controlsCost;
+            costBreakdown.controls = controlsCost;
+        }
+
+        // Software Systems Cost
+        if (moduleData.software?.applications) {
+            const softwareCost = calculateSoftwareSystemsCost(moduleData.software.applications);
+            totalCost += softwareCost;
+            costBreakdown.software = softwareCost;
+        }
+
+        // Implementation Services Cost
+        if (moduleData.implementation?.services) {
+            const implementationCost = calculateImplementationServicesCost(moduleData.implementation.services);
+            totalCost += implementationCost;
+            costBreakdown.implementation = implementationCost;
+        }
+
+        return { total: totalCost, breakdown: costBreakdown };
     };
 
     const summary = generateProjectSummary();

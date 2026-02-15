@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { calculateSoftwareApplicationAnnualCost, calculateSoftwareSystemsCost } from '../../utils/costs';
-import { validateSoftwareApplications, hasRowErrors } from '../../utils/validation';
+import { validateSoftwareApplications } from '../../utils/validation';
+
+function hasValidationErrors(validationErrors = []) {
+    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
+}
 
 export default function SoftwareSystemsForm() {
     const { state, dispatch } = useProject();
@@ -22,7 +26,7 @@ export default function SoftwareSystemsForm() {
             }
         });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateSoftwareApplications(newData.applications));
         }
     };
@@ -51,7 +55,7 @@ export default function SoftwareSystemsForm() {
     const handleSave = () => {
         const validationErrors = validateSoftwareApplications(applications);
 
-        if (hasRowErrors(validationErrors)) {
+        if (hasValidationErrors(validationErrors)) {
             setErrors(validationErrors);
             return;
         }
@@ -92,7 +96,7 @@ export default function SoftwareSystemsForm() {
                 </button>
             </div>
 
-            {hasRowErrors(errors) && (
+            {hasValidationErrors(errors) && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
