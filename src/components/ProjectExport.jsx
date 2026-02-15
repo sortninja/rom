@@ -91,18 +91,14 @@ export default function ProjectExport() {
 
         // Storage Infrastructure Cost
         if (moduleData.storage?.zones) {
-            const storageCost = moduleData.storage.zones.reduce((sum, zone) => {
-                const costPerPos = zone.type === 'Selective Racking' ? 60 : zone.type === 'Push Back' ? 120 : 40;
-                return sum + (zone.positions * costPerPos);
-            }, 0);
+            const storageCost = calculateStorageInfrastructureCost(moduleData.storage.zones);
             totalCost += storageCost;
             costBreakdown.storage = storageCost;
         }
 
         // Controls & Electrical Cost
         if (moduleData.controls?.panels) {
-            const controlsCost = moduleData.controls.panels.reduce((sum, panel) =>
-                sum + (panel.quantity * panel.unitCost), 0);
+            const controlsCost = calculateControlsElectricalCost(moduleData.controls.panels);
             totalCost += controlsCost;
             costBreakdown.controls = controlsCost;
         }

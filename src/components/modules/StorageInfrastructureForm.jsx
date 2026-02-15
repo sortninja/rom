@@ -1,35 +1,79 @@
 import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { calculateStorageInfrastructureCost, calculateStorageZoneCost } from '../../utils/costs';
+import { toNumber, validateStorageZones } from '../../utils/validation';
+
+function hasValidationErrors(validationErrors = []) {
+    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
+}
 
 export default function StorageInfrastructureForm() {
-    const { state } = useProject();
-    const moduleConfig = state.modules['storage'];
+    const { state, dispatch } = useProject();
+    const [errors, setErrors] = useState([]);
+
+    const moduleConfig = state.modules.storage;
     const sourcing = moduleConfig?.sourcing || 'Buyout';
 
-    const [zones, setZones] = useState([
-        { id: 1, type: 'Selective Racking', positions: 5000, height: 30, aisleWidth: 10 },
-    ]);
+    const moduleData = state.moduleData.storage || {
+        zones: [{ id: 1, type: 'Selective Racking', positions: 5000, height: 30, aisleWidth: 10 }]
+    };
+
+    const zones = moduleData.zones;
+
+    const updateModuleData = (newData) => {
+        dispatch({
+            type: 'SET_MODULE_DATA',
+            payload: {
+                moduleId: 'storage',
+                data: newData
+            }
+        });
+    };
 
     const addZone = () => {
-        setZones([...zones, { id: Date.now(), type: 'Selective Racking', positions: 1000, height: 20, aisleWidth: 10 }]);
+        const updatedZones = [...zones, { id: Date.now(), type: 'Selective Racking', positions: 1000, height: 20, aisleWidth: 10 }];
+        updateModuleData({ zones: updatedZones });
+
+        if (hasValidationErrors(errors)) {
+            setErrors(validateStorageZones(updatedZones));
+        }
     };
 
     const removeZone = (id) => {
-        setZones(zones.filter(z => z.id !== id));
+        const updatedZones = zones.filter((zone) => zone.id !== id);
+        updateModuleData({ zones: updatedZones });
+
+        if (hasValidationErrors(errors)) {
+            setErrors(validateStorageZones(updatedZones));
+        }
     };
 
     const updateZone = (id, field, value) => {
-        setZones(zones.map(z => z.id === id ? { ...z, [field]: value } : z));
+        const updatedZones = zones.map((zone) => zone.id === id ? { ...zone, [field]: value } : zone);
+        updateModuleData({ zones: updatedZones });
+
+        if (hasValidationErrors(errors)) {
+            setErrors(validateStorageZones(updatedZones));
+        }
     };
 
-    const totalPositions = zones.reduce((sum, z) => sum + z.positions, 0);
+    const handleSave = () => {
+        const validationErrors = validateStorageZones(zones);
 
-    // Rough estimation: $50-100 per pallet position depending on type
-    const estimatedCost = zones.reduce((sum, z) => {
-        const costPerPos = z.type === 'Selective Racking' ? 60 : z.type === 'Push Back' ? 120 : 40;
-        return sum + (z.positions * costPerPos);
+        if (hasValidationErrors(validationErrors)) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        setErrors([]);
+    };
+
+    const totalPositions = zones.reduce((sum, zone) => {
+        const positions = toNumber(zone.positions);
+        return sum + (Number.isFinite(positions) ? Math.max(0, positions) : 0);
     }, 0);
+    const estimatedCost = calculateStorageInfrastructureCost(zones);
 
     return (
         <div className="card">
@@ -45,7 +89,7 @@ export default function StorageInfrastructureForm() {
                         Strategy: <strong>{sourcing}</strong>
                     </span>
                 </div>
-                <button className="flex items-center gap-md" style={{
+                <button onClick={handleSave} className="flex items-center gap-md" style={{
                     background: 'var(--color-primary)',
                     color: 'white',
                     border: 'none',
@@ -56,6 +100,21 @@ export default function StorageInfrastructureForm() {
                     Save
                 </button>
             </div>
+
+            {hasValidationErrors(errors) && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)',
+                    marginBottom: 'var(--space-md)',
+                    color: 'var(--color-danger)'
+                }}>
+                    <AlertCircle size={16} />
+                    <span className="text-small" style={{ color: 'var(--color-danger)' }}>
+                        Please resolve storage validation errors before saving.
+                    </span>
+                </div>
+            )}
 
             <div className="mb-6">
                 <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Storage Zones</h3>
@@ -72,55 +131,80 @@ export default function StorageInfrastructureForm() {
                         </tr>
                     </thead>
                     <tbody>
-                        {zones.map(zone => (
-                            <tr key={zone.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <select
-                                        value={zone.type}
-                                        onChange={(e) => updateZone(zone.id, 'type', e.target.value)}
-                                        style={{ padding: '4px', width: '100%' }}
-                                    >
-                                        <option value="Selective Racking">Selective Racking</option>
-                                        <option value="Push Back">Push Back Racking</option>
-                                        <option value="Drive In">Drive In Racking</option>
-                                        <option value="Shelving">Industrial Shelving (Bin units)</option>
-                                        <option value="Mezzanine">Structure / Mezzanine (sq ft)</option>
-                                    </select>
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={zone.positions}
-                                        onChange={(e) => updateZone(zone.id, 'positions', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '100px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={zone.height}
-                                        onChange={(e) => updateZone(zone.id, 'height', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '80px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={zone.aisleWidth}
-                                        onChange={(e) => updateZone(zone.id, 'aisleWidth', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '80px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    ${(zone.positions * (zone.type === 'Selective Racking' ? 60 : zone.type === 'Push Back' ? 120 : 40)).toLocaleString()}
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <button onClick={() => removeZone(zone.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
-                                        <Trash2 size={16} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {zones.map((zone, rowIndex) => {
+                            const rowError = errors[rowIndex] || {};
+
+                            return (
+                                <tr key={zone.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <select
+                                            value={zone.type}
+                                            onChange={(e) => updateZone(zone.id, 'type', e.target.value)}
+                                            style={{ padding: '4px', width: '100%' }}
+                                        >
+                                            <option value="Selective Racking">Selective Racking</option>
+                                            <option value="Push Back">Push Back Racking</option>
+                                            <option value="Drive In">Drive In Racking</option>
+                                            <option value="Shelving">Industrial Shelving (Bin units)</option>
+                                            <option value="Mezzanine">Structure / Mezzanine (sq ft)</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={zone.positions}
+                                            onChange={(e) => updateZone(zone.id, 'positions', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '100px',
+                                                borderColor: rowError.positions ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.positions && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.positions}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={zone.height}
+                                            onChange={(e) => updateZone(zone.id, 'height', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '80px',
+                                                borderColor: rowError.height ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.height && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.height}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={zone.aisleWidth}
+                                            onChange={(e) => updateZone(zone.id, 'aisleWidth', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '80px',
+                                                borderColor: rowError.aisleWidth ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.aisleWidth && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.aisleWidth}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        ${calculateStorageZoneCost(zone).toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <button onClick={() => removeZone(zone.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
 
