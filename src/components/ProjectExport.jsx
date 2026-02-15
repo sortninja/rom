@@ -105,16 +105,14 @@ export default function ProjectExport() {
 
         // Software Systems Cost
         if (moduleData.software?.applications) {
-            const softwareCost = moduleData.software.applications.reduce((sum, application) =>
-                sum + application.annualCost, 0);
+            const softwareCost = calculateSoftwareSystemsCost(moduleData.software.applications);
             totalCost += softwareCost;
             costBreakdown.software = softwareCost;
         }
 
         // Implementation Services Cost
         if (moduleData.implementation?.services) {
-            const implementationCost = moduleData.implementation.services.reduce((sum, service) =>
-                sum + (service.hours * service.hourlyRate), 0);
+            const implementationCost = calculateImplementationServicesCost(moduleData.implementation.services);
             totalCost += implementationCost;
             costBreakdown.implementation = implementationCost;
         }

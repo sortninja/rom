@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { calculateImplementationServiceCost, calculateImplementationServicesCost } from '../../utils/costs';
+import { toNumber, validateImplementationServices } from '../../utils/validation';
+
+function hasValidationErrors(validationErrors = []) {
+    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
+}
 
 export default function ImplementationServicesForm() {
     const { state, dispatch } = useProject();
+    const [errors, setErrors] = useState([]);
     const moduleConfig = state.modules.implementation;
     const sourcing = moduleConfig?.sourcing || 'In-House';
 
@@ -18,6 +25,10 @@ export default function ImplementationServicesForm() {
                 data: newData
             }
         });
+
+        if (hasValidationErrors(errors)) {
+            setErrors(validateImplementationServices(newData.services));
+        }
     };
 
     const addService = () => {
@@ -32,20 +43,30 @@ export default function ImplementationServicesForm() {
     };
 
     const removeService = (id) => {
-        updateModuleData({ services: services.filter(service => service.id !== id) });
+        updateModuleData({ services: services.filter((service) => service.id !== id) });
     };
 
     const updateService = (id, field, value) => {
-        const updatedServices = services.map(service => service.id === id ? { ...service, [field]: value } : service);
+        const updatedServices = services.map((service) => service.id === id ? { ...service, [field]: value } : service);
         updateModuleData({ services: updatedServices });
     };
 
     const handleSave = () => {
-        console.log('Implementation services data saved:', { services });
+        const validationErrors = validateImplementationServices(services);
+
+        if (hasValidationErrors(validationErrors)) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        setErrors([]);
     };
 
-    const totalHours = services.reduce((sum, service) => sum + service.hours, 0);
-    const totalImplementationCost = services.reduce((sum, service) => sum + (service.hours * service.hourlyRate), 0);
+    const totalHours = services.reduce((sum, service) => {
+        const hours = toNumber(service.hours);
+        return sum + (Number.isFinite(hours) ? Math.max(0, hours) : 0);
+    }, 0);
+    const totalImplementationCost = calculateImplementationServicesCost(services);
 
     return (
         <div className="card">
@@ -78,6 +99,21 @@ export default function ImplementationServicesForm() {
                 </button>
             </div>
 
+            {hasValidationErrors(errors) && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)',
+                    marginBottom: 'var(--space-md)',
+                    color: 'var(--color-danger)'
+                }}>
+                    <AlertCircle size={16} />
+                    <span className="text-small" style={{ color: 'var(--color-danger)' }}>
+                        Please resolve implementation service validation errors before saving.
+                    </span>
+                </div>
+            )}
+
             <div className="mb-6">
                 <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Delivery Scope</h3>
 
@@ -93,60 +129,78 @@ export default function ImplementationServicesForm() {
                         </tr>
                     </thead>
                     <tbody>
-                        {services.map(service => (
-                            <tr key={service.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <select
-                                        value={service.phase}
-                                        onChange={(e) => updateService(service.id, 'phase', e.target.value)}
-                                        style={{ padding: '4px', width: '100%' }}
-                                    >
-                                        <option value="Project Management">Project Management</option>
-                                        <option value="Installation Supervision">Installation Supervision</option>
-                                        <option value="Commissioning">Commissioning</option>
-                                        <option value="Testing & Validation">Testing & Validation</option>
-                                        <option value="Training & Go-live">Training & Go-live</option>
-                                    </select>
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <select
-                                        value={service.resourceType}
-                                        onChange={(e) => updateService(service.id, 'resourceType', e.target.value)}
-                                        style={{ padding: '4px', width: '100%' }}
-                                    >
-                                        <option value="PM">PM</option>
-                                        <option value="Site Lead">Site Lead</option>
-                                        <option value="Controls Engineer">Controls Engineer</option>
-                                        <option value="Software Engineer">Software Engineer</option>
-                                        <option value="Technician">Technician</option>
-                                    </select>
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={service.hours}
-                                        onChange={(e) => updateService(service.id, 'hours', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '100px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={service.hourlyRate}
-                                        onChange={(e) => updateService(service.id, 'hourlyRate', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '100px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    ${(service.hours * service.hourlyRate).toLocaleString()}
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <button onClick={() => removeService(service.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
-                                        <Trash2 size={16} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {services.map((service, rowIndex) => {
+                            const rowError = errors[rowIndex] || {};
+
+                            return (
+                                <tr key={service.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <select
+                                            value={service.phase}
+                                            onChange={(e) => updateService(service.id, 'phase', e.target.value)}
+                                            style={{ padding: '4px', width: '100%' }}
+                                        >
+                                            <option value="Project Management">Project Management</option>
+                                            <option value="Installation Supervision">Installation Supervision</option>
+                                            <option value="Commissioning">Commissioning</option>
+                                            <option value="Testing & Validation">Testing & Validation</option>
+                                            <option value="Training & Go-live">Training & Go-live</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <select
+                                            value={service.resourceType}
+                                            onChange={(e) => updateService(service.id, 'resourceType', e.target.value)}
+                                            style={{ padding: '4px', width: '100%' }}
+                                        >
+                                            <option value="PM">PM</option>
+                                            <option value="Site Lead">Site Lead</option>
+                                            <option value="Controls Engineer">Controls Engineer</option>
+                                            <option value="Software Engineer">Software Engineer</option>
+                                            <option value="Technician">Technician</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={service.hours}
+                                            onChange={(e) => updateService(service.id, 'hours', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '100px',
+                                                borderColor: rowError.hours ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.hours && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.hours}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={service.hourlyRate}
+                                            onChange={(e) => updateService(service.id, 'hourlyRate', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '100px',
+                                                borderColor: rowError.hourlyRate ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.hourlyRate && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.hourlyRate}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        ${calculateImplementationServiceCost(service).toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <button onClick={() => removeService(service.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
 
