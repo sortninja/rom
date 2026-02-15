@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { calculateRoboticsHardwareCost, calculateRobotLineCost } from '../../utils/costs';
-import { validateRobotFleet, hasRowErrors } from '../../utils/validation';
+import { validateRobotFleet } from '../../utils/validation';
+
+function hasValidationErrors(validationErrors = []) {
+    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
+}
 
 export default function RoboticSystemsForm() {
     const { state, dispatch } = useProject();
@@ -22,7 +26,7 @@ export default function RoboticSystemsForm() {
             }
         });
 
-        if (hasRowErrors(rowErrors)) {
+        if (hasValidationErrors(rowErrors)) {
             setRowErrors(validateRobotFleet(newData.robots));
         }
     };
@@ -44,7 +48,7 @@ export default function RoboticSystemsForm() {
     const handleSave = () => {
         const validationErrors = validateRobotFleet(robots);
 
-        if (hasRowErrors(validationErrors)) {
+        if (hasValidationErrors(validationErrors)) {
             setRowErrors(validationErrors);
             return;
         }
@@ -85,7 +89,7 @@ export default function RoboticSystemsForm() {
                 </button>
             </div>
 
-            {hasRowErrors(rowErrors) && (
+            {hasValidationErrors(rowErrors) && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',

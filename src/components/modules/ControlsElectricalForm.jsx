@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { calculateControlPanelCost, calculateControlsElectricalCost } from '../../utils/costs';
-import { toNumber, validateControlPanels, hasRowErrors } from '../../utils/validation';
+import { toNumber, validateControlPanels } from '../../utils/validation';
+
+function hasValidationErrors(validationErrors = []) {
+    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
+}
 
 export default function ControlsElectricalForm() {
     const { state, dispatch } = useProject();
@@ -37,7 +41,7 @@ export default function ControlsElectricalForm() {
         const updatedPanels = [...panels, newPanel];
         updateModuleData({ panels: updatedPanels });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateControlPanels(updatedPanels));
         }
     };
@@ -46,7 +50,7 @@ export default function ControlsElectricalForm() {
         const updatedPanels = panels.filter((panel) => panel.id !== id);
         updateModuleData({ panels: updatedPanels });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateControlPanels(updatedPanels));
         }
     };
@@ -55,7 +59,7 @@ export default function ControlsElectricalForm() {
         const updatedPanels = panels.map((panel) => panel.id === id ? { ...panel, [field]: value } : panel);
         updateModuleData({ panels: updatedPanels });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateControlPanels(updatedPanels));
         }
     };
@@ -63,7 +67,7 @@ export default function ControlsElectricalForm() {
     const handleSave = () => {
         const validationErrors = validateControlPanels(panels);
 
-        if (hasRowErrors(validationErrors)) {
+        if (hasValidationErrors(validationErrors)) {
             setErrors(validationErrors);
             return;
         }
@@ -113,7 +117,7 @@ export default function ControlsElectricalForm() {
                 </button>
             </div>
 
-            {hasRowErrors(errors) && (
+            {hasValidationErrors(errors) && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',

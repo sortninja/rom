@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { calculateStorageInfrastructureCost, calculateStorageZoneCost } from '../../utils/costs';
-import { toNumber, validateStorageZones, hasRowErrors } from '../../utils/validation';
+import { toNumber, validateStorageZones } from '../../utils/validation';
+
+function hasValidationErrors(validationErrors = []) {
+    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
+}
 
 export default function StorageInfrastructureForm() {
     const { state, dispatch } = useProject();
@@ -31,7 +35,7 @@ export default function StorageInfrastructureForm() {
         const updatedZones = [...zones, { id: Date.now(), type: 'Selective Racking', positions: 1000, height: 20, aisleWidth: 10 }];
         updateModuleData({ zones: updatedZones });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateStorageZones(updatedZones));
         }
     };
@@ -40,7 +44,7 @@ export default function StorageInfrastructureForm() {
         const updatedZones = zones.filter((zone) => zone.id !== id);
         updateModuleData({ zones: updatedZones });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateStorageZones(updatedZones));
         }
     };
@@ -49,7 +53,7 @@ export default function StorageInfrastructureForm() {
         const updatedZones = zones.map((zone) => zone.id === id ? { ...zone, [field]: value } : zone);
         updateModuleData({ zones: updatedZones });
 
-        if (hasRowErrors(errors)) {
+        if (hasValidationErrors(errors)) {
             setErrors(validateStorageZones(updatedZones));
         }
     };
@@ -57,7 +61,7 @@ export default function StorageInfrastructureForm() {
     const handleSave = () => {
         const validationErrors = validateStorageZones(zones);
 
-        if (hasRowErrors(validationErrors)) {
+        if (hasValidationErrors(validationErrors)) {
             setErrors(validationErrors);
             return;
         }
@@ -97,7 +101,7 @@ export default function StorageInfrastructureForm() {
                 </button>
             </div>
 
-            {hasRowErrors(errors) && (
+            {hasValidationErrors(errors) && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
