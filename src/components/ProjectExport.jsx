@@ -1,6 +1,9 @@
 import React from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
+import {
+    calculateProjectCostEstimate
+} from '../utils/costs';
 import { Download, FileText } from 'lucide-react';
 
 export default function ProjectExport() {
@@ -71,62 +74,7 @@ export default function ProjectExport() {
     };
 
     const generateCostEstimate = () => {
-        let totalCost = 0;
-        const costBreakdown = {};
-
-        // Robotic Systems Cost
-        if (moduleData.robotic_systems?.robots) {
-            const robotCost = moduleData.robotic_systems.robots.reduce((sum, robot) =>
-                sum + (robot.quantity * robot.unitCost), 0);
-            totalCost += robotCost;
-            costBreakdown.robotic_systems = robotCost;
-        }
-
-        // Conveyance Systems Cost
-        if (moduleData.conveyance?.segments) {
-            const conveyanceCost = moduleData.conveyance.segments.reduce((sum, segment) => {
-                const costPerFoot = segment.type === 'MDR' ? 350 : segment.type === 'Gravity' ? 100 : 500;
-                return sum + (segment.length * costPerFoot);
-            }, 0);
-            totalCost += conveyanceCost;
-            costBreakdown.conveyance = conveyanceCost;
-        }
-
-        // Storage Infrastructure Cost
-        if (moduleData.storage?.zones) {
-            const storageCost = moduleData.storage.zones.reduce((sum, zone) => {
-                const costPerPos = zone.type === 'Selective Racking' ? 60 : zone.type === 'Push Back' ? 120 : 40;
-                return sum + (zone.positions * costPerPos);
-            }, 0);
-            totalCost += storageCost;
-            costBreakdown.storage = storageCost;
-        }
-
-        // Controls & Electrical Cost
-        if (moduleData.controls?.panels) {
-            const controlsCost = moduleData.controls.panels.reduce((sum, panel) =>
-                sum + (panel.quantity * panel.unitCost), 0);
-            totalCost += controlsCost;
-            costBreakdown.controls = controlsCost;
-        }
-
-        // Software Systems Cost
-        if (moduleData.software?.applications) {
-            const softwareCost = moduleData.software.applications.reduce((sum, application) =>
-                sum + application.annualCost, 0);
-            totalCost += softwareCost;
-            costBreakdown.software = softwareCost;
-        }
-
-        // Implementation Services Cost
-        if (moduleData.implementation?.services) {
-            const implementationCost = moduleData.implementation.services.reduce((sum, service) =>
-                sum + (service.hours * service.hourlyRate), 0);
-            totalCost += implementationCost;
-            costBreakdown.implementation = implementationCost;
-        }
-
-        return { total: totalCost, breakdown: costBreakdown };
+        return calculateProjectCostEstimate(moduleData);
     };
 
     const summary = generateProjectSummary();

@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { calculateControlPanelCost, calculateControlsElectricalCost } from '../../utils/costs';
+import { toNumber, validateControlPanels, hasRowErrors } from '../../utils/validation';
 
 export default function ControlsElectricalForm() {
     const { state, dispatch } = useProject();
+    const [errors, setErrors] = useState([]);
+
     const moduleConfig = state.modules.controls;
     const sourcing = moduleConfig?.sourcing || 'In-House';
 
@@ -29,24 +33,54 @@ export default function ControlsElectricalForm() {
             ioCount: 64,
             unitCost: 18000
         };
-        updateModuleData({ panels: [...panels, newPanel] });
+
+        const updatedPanels = [...panels, newPanel];
+        updateModuleData({ panels: updatedPanels });
+
+        if (hasRowErrors(errors)) {
+            setErrors(validateControlPanels(updatedPanels));
+        }
     };
 
     const removePanel = (id) => {
-        updateModuleData({ panels: panels.filter(panel => panel.id !== id) });
+        const updatedPanels = panels.filter((panel) => panel.id !== id);
+        updateModuleData({ panels: updatedPanels });
+
+        if (hasRowErrors(errors)) {
+            setErrors(validateControlPanels(updatedPanels));
+        }
     };
 
     const updatePanel = (id, field, value) => {
-        const updatedPanels = panels.map(panel => panel.id === id ? { ...panel, [field]: value } : panel);
+        const updatedPanels = panels.map((panel) => panel.id === id ? { ...panel, [field]: value } : panel);
         updateModuleData({ panels: updatedPanels });
+
+        if (hasRowErrors(errors)) {
+            setErrors(validateControlPanels(updatedPanels));
+        }
     };
 
     const handleSave = () => {
-        console.log('Controls data saved:', { panels });
+        const validationErrors = validateControlPanels(panels);
+
+        if (hasRowErrors(validationErrors)) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        setErrors([]);
     };
 
-    const totalControlsCost = panels.reduce((sum, panel) => sum + (panel.quantity * panel.unitCost), 0);
-    const totalIoPoints = panels.reduce((sum, panel) => sum + (panel.quantity * panel.ioCount), 0);
+    const totalControlsCost = calculateControlsElectricalCost(panels);
+    const totalIoPoints = panels.reduce((sum, panel) => {
+        const quantity = toNumber(panel.quantity);
+        const ioCount = toNumber(panel.ioCount);
+
+        const safeQuantity = Number.isFinite(quantity) ? Math.max(0, quantity) : 0;
+        const safeIoCount = Number.isFinite(ioCount) ? Math.max(0, ioCount) : 0;
+
+        return sum + (safeQuantity * safeIoCount);
+    }, 0);
 
     return (
         <div className="card">
@@ -79,6 +113,21 @@ export default function ControlsElectricalForm() {
                 </button>
             </div>
 
+            {hasRowErrors(errors) && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)',
+                    marginBottom: 'var(--space-md)',
+                    color: 'var(--color-danger)'
+                }}>
+                    <AlertCircle size={16} />
+                    <span className="text-small" style={{ color: 'var(--color-danger)' }}>
+                        Please resolve controls validation errors before saving.
+                    </span>
+                </div>
+            )}
+
             <div className="mb-6">
                 <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Controls Scope</h3>
 
@@ -95,62 +144,94 @@ export default function ControlsElectricalForm() {
                         </tr>
                     </thead>
                     <tbody>
-                        {panels.map(panel => (
-                            <tr key={panel.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="text"
-                                        value={panel.name}
-                                        onChange={(e) => updatePanel(panel.id, 'name', e.target.value)}
-                                        style={{ padding: '4px', width: '100%' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <select
-                                        value={panel.panelType}
-                                        onChange={(e) => updatePanel(panel.id, 'panelType', e.target.value)}
-                                        style={{ padding: '4px', width: '100%' }}
-                                    >
-                                        <option value="PLC Panel">PLC Panel</option>
-                                        <option value="MCC">MCC</option>
-                                        <option value="HMI Station">HMI Station</option>
-                                        <option value="Safety Panel">Safety Panel</option>
-                                    </select>
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={panel.quantity}
-                                        onChange={(e) => updatePanel(panel.id, 'quantity', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '80px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={panel.ioCount}
-                                        onChange={(e) => updatePanel(panel.id, 'ioCount', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '80px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <input
-                                        type="number"
-                                        value={panel.unitCost}
-                                        onChange={(e) => updatePanel(panel.id, 'unitCost', Number(e.target.value))}
-                                        style={{ padding: '4px', width: '100px' }}
-                                    />
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    ${(panel.quantity * panel.unitCost).toLocaleString()}
-                                </td>
-                                <td style={{ padding: 'var(--space-sm)' }}>
-                                    <button onClick={() => removePanel(panel.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
-                                        <Trash2 size={16} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {panels.map((panel, rowIndex) => {
+                            const rowError = errors[rowIndex] || {};
+
+                            return (
+                                <tr key={panel.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="text"
+                                            value={panel.name}
+                                            onChange={(e) => updatePanel(panel.id, 'name', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '100%',
+                                                borderColor: rowError.name ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.name && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.name}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <select
+                                            value={panel.panelType}
+                                            onChange={(e) => updatePanel(panel.id, 'panelType', e.target.value)}
+                                            style={{ padding: '4px', width: '100%' }}
+                                        >
+                                            <option value="PLC Panel">PLC Panel</option>
+                                            <option value="MCC">MCC</option>
+                                            <option value="HMI Station">HMI Station</option>
+                                            <option value="Safety Panel">Safety Panel</option>
+                                        </select>
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={panel.quantity}
+                                            onChange={(e) => updatePanel(panel.id, 'quantity', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '80px',
+                                                borderColor: rowError.quantity ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.quantity && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.quantity}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={panel.ioCount}
+                                            onChange={(e) => updatePanel(panel.id, 'ioCount', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '80px',
+                                                borderColor: rowError.ioCount ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.ioCount && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.ioCount}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <input
+                                            type="number"
+                                            value={panel.unitCost}
+                                            onChange={(e) => updatePanel(panel.id, 'unitCost', e.target.value)}
+                                            style={{
+                                                padding: '4px',
+                                                width: '100px',
+                                                borderColor: rowError.unitCost ? 'var(--color-danger)' : undefined
+                                            }}
+                                        />
+                                        {rowError.unitCost && (
+                                            <span className="text-small" style={{ color: 'var(--color-danger)' }}>{rowError.unitCost}</span>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        ${calculateControlPanelCost(panel).toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: 'var(--space-sm)' }}>
+                                        <button onClick={() => removePanel(panel.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
 
