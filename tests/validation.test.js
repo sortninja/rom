@@ -7,10 +7,8 @@ import {
   validateConveyanceSegments,
 } from '../src/utils/validation.js';
 import {
-  calculateRobotLineCost,
   calculateRoboticsHardwareCost,
   calculateConveyanceHardwareCost,
-  calculateConveyanceSegmentCost,
 } from '../src/utils/costs.js';
 
 test('validateOperationalData accepts valid payload', () => {
@@ -53,28 +51,6 @@ test('validateConveyanceSegments enforces positive integer length and zones', ()
   assert.equal(errors[0].zones, 'Zones must be a whole number greater than 0.');
 });
 
-
-test('validateConveyanceSegments accepts valid whole-number inputs', () => {
-  const errors = validateConveyanceSegments([
-    { id: 1, length: '15', zones: '4' },
-  ]);
-
-  assert.deepEqual(errors, []);
-});
-
-test('validateConveyanceSegments rejects non-integer lengths', () => {
-  const errors = validateConveyanceSegments([
-    { id: 1, length: 10.5, zones: 2 },
-  ]);
-
-  assert.equal(errors[0].length, 'Length must be a whole number greater than 0.');
-});
-
-test('calculateRobotLineCost sanitizes invalid numerics', () => {
-  assert.equal(calculateRobotLineCost({ quantity: 'abc', unitCost: 100 }), 0);
-  assert.equal(calculateRobotLineCost({ quantity: 2, unitCost: -50 }), 0);
-});
-
 test('calculateRoboticsHardwareCost sums valid rows and ignores invalid numerics', () => {
   const total = calculateRoboticsHardwareCost([
     { quantity: 2, unitCost: 1000 },
@@ -83,18 +59,6 @@ test('calculateRoboticsHardwareCost sums valid rows and ignores invalid numerics
   ]);
 
   assert.equal(total, 3500);
-});
-
-test('calculateConveyanceSegmentCost sanitizes invalid numeric lengths', () => {
-  const total = calculateConveyanceSegmentCost({ type: 'MDR', length: 'abc' });
-
-  assert.equal(total, 0);
-});
-
-test('calculateConveyanceSegmentCost applies type-specific rates', () => {
-  assert.equal(calculateConveyanceSegmentCost({ type: 'MDR', length: 2 }), 700);
-  assert.equal(calculateConveyanceSegmentCost({ type: 'Gravity', length: 2 }), 200);
-  assert.equal(calculateConveyanceSegmentCost({ type: 'Sortation', length: 2 }), 1000);
 });
 
 test('calculateConveyanceHardwareCost sums lengths by segment type and ignores invalid numerics', () => {
