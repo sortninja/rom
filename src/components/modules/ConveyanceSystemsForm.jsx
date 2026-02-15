@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
-import { calculateConveyanceHardwareCost, calculateConveyanceSegmentCost } from '../../utils/costs';
-import { toNumber, validateConveyanceSegments } from '../../utils/validation';
-
-function hasValidationErrors(validationErrors = []) {
-    return validationErrors.some((rowError) => rowError && Object.keys(rowError).length > 0);
-}
+import { calculateConveyanceHardwareCost, getConveyanceCostPerFoot } from '../../utils/costs';
+import { validateConveyanceSegments } from '../../utils/validation';
 
 export default function ConveyanceSystemsForm() {
     const { state, dispatch } = useProject();
     const [errors, setErrors] = useState([]);
 
-    const moduleConfig = state.modules.conveyance;
+    const moduleConfig = state.modules['conveyance'];
     const sourcing = moduleConfig?.sourcing || 'Buyout';
     const moduleData = state.moduleData.conveyance || {
         segments: [{ id: 1, type: 'MDR', length: 100, width: 24, zones: 10 }]
@@ -31,21 +27,13 @@ export default function ConveyanceSystemsForm() {
     };
 
     const addSegment = () => {
-        const updatedSegments = [...segments, { id: Date.now(), type: 'MDR', length: 10, width: 24, zones: 1 }];
-        updateModuleData({ segments: updatedSegments });
-
-        if (hasValidationErrors(errors)) {
-            setErrors(validateConveyanceSegments(updatedSegments));
-        }
+        updateModuleData({
+            segments: [...segments, { id: Date.now(), type: 'MDR', length: 10, width: 24, zones: 1 }]
+        });
     };
 
     const removeSegment = (id) => {
-        const updatedSegments = segments.filter((segment) => segment.id !== id);
-        updateModuleData({ segments: updatedSegments });
-
-        if (hasValidationErrors(errors)) {
-            setErrors(validateConveyanceSegments(updatedSegments));
-        }
+        updateModuleData({ segments: segments.filter((segment) => segment.id !== id) });
     };
 
     const updateSegment = (id, field, value) => {
@@ -55,7 +43,7 @@ export default function ConveyanceSystemsForm() {
 
         updateModuleData({ segments: updatedSegments });
 
-        if (hasValidationErrors(errors)) {
+        if (errors.length > 0) {
             setErrors(validateConveyanceSegments(updatedSegments));
         }
     };
@@ -63,7 +51,7 @@ export default function ConveyanceSystemsForm() {
     const handleSave = () => {
         const validationErrors = validateConveyanceSegments(segments);
 
-        if (hasValidationErrors(validationErrors)) {
+        if (validationErrors.length > 0) {
             setErrors(validationErrors);
             return;
         }
@@ -71,12 +59,10 @@ export default function ConveyanceSystemsForm() {
         setErrors([]);
         updateModuleData({ segments });
 
+        console.log('Conveyance data saved:', { segments });
     };
 
-    const totalLength = segments.reduce((sum, segment) => {
-        const length = toNumber(segment.length);
-        return sum + (Number.isFinite(length) ? Math.max(0, length) : 0);
-    }, 0);
+    const totalLength = segments.reduce((sum, segment) => sum + Number(segment.length || 0), 0);
     const estimatedCost = calculateConveyanceHardwareCost(segments);
 
     return (
@@ -109,7 +95,7 @@ export default function ConveyanceSystemsForm() {
                 </button>
             </div>
 
-            {hasValidationErrors(errors) && (
+            {errors.length > 0 && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -171,7 +157,7 @@ export default function ConveyanceSystemsForm() {
                                         <input
                                             type="number"
                                             value={segment.length}
-                                            onChange={(e) => updateSegment(segment.id, 'length', e.target.value)}
+                                            onChange={(e) => updateSegment(segment.id, 'length', Number(e.target.value))}
                                             style={{
                                                 padding: '4px',
                                                 width: '80px',
@@ -186,7 +172,7 @@ export default function ConveyanceSystemsForm() {
                                         <input
                                             type="number"
                                             value={segment.zones}
-                                            onChange={(e) => updateSegment(segment.id, 'zones', e.target.value)}
+                                            onChange={(e) => updateSegment(segment.id, 'zones', Number(e.target.value))}
                                             style={{
                                                 padding: '4px',
                                                 width: '80px',
@@ -198,7 +184,7 @@ export default function ConveyanceSystemsForm() {
                                         )}
                                     </td>
                                     <td style={{ padding: 'var(--space-sm)' }}>
-                                        ${calculateConveyanceSegmentCost(segment).toLocaleString()}
+                                        ${(Number(segment.length || 0) * getConveyanceCostPerFoot(segment.type)).toLocaleString()}
                                     </td>
                                     <td style={{ padding: 'var(--space-sm)' }}>
                                         <button onClick={() => removeSegment(segment.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
