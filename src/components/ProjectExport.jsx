@@ -1,6 +1,12 @@
 import React from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
+import {
+    calculateConveyanceHardwareCost,
+    calculateRoboticsHardwareCost,
+    calculateStorageInfrastructureCost,
+    calculateControlsElectricalCost
+} from '../utils/costs';
 import { Download, FileText } from 'lucide-react';
 
 export default function ProjectExport() {
@@ -76,36 +82,28 @@ export default function ProjectExport() {
 
         // Robotic Systems Cost
         if (moduleData.robotic_systems?.robots) {
-            const robotCost = moduleData.robotic_systems.robots.reduce((sum, robot) =>
-                sum + (robot.quantity * robot.unitCost), 0);
+            const robotCost = calculateRoboticsHardwareCost(moduleData.robotic_systems.robots);
             totalCost += robotCost;
             costBreakdown.robotic_systems = robotCost;
         }
 
         // Conveyance Systems Cost
         if (moduleData.conveyance?.segments) {
-            const conveyanceCost = moduleData.conveyance.segments.reduce((sum, segment) => {
-                const costPerFoot = segment.type === 'MDR' ? 350 : segment.type === 'Gravity' ? 100 : 500;
-                return sum + (segment.length * costPerFoot);
-            }, 0);
+            const conveyanceCost = calculateConveyanceHardwareCost(moduleData.conveyance.segments);
             totalCost += conveyanceCost;
             costBreakdown.conveyance = conveyanceCost;
         }
 
         // Storage Infrastructure Cost
         if (moduleData.storage?.zones) {
-            const storageCost = moduleData.storage.zones.reduce((sum, zone) => {
-                const costPerPos = zone.type === 'Selective Racking' ? 60 : zone.type === 'Push Back' ? 120 : 40;
-                return sum + (zone.positions * costPerPos);
-            }, 0);
+            const storageCost = calculateStorageInfrastructureCost(moduleData.storage.zones);
             totalCost += storageCost;
             costBreakdown.storage = storageCost;
         }
 
         // Controls & Electrical Cost
         if (moduleData.controls?.panels) {
-            const controlsCost = moduleData.controls.panels.reduce((sum, panel) =>
-                sum + (panel.quantity * panel.unitCost), 0);
+            const controlsCost = calculateControlsElectricalCost(moduleData.controls.panels);
             totalCost += controlsCost;
             costBreakdown.controls = controlsCost;
         }
