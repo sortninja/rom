@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
 import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
-import { calculateRoboticsHardwareCost } from '../../utils/costs';
-import { validateRobotFleet } from '../../utils/validation';
+import { calculateRoboticsHardwareCost, calculateRobotLineCost } from '../../utils/costs';
+import { validateRobotFleet, hasRowErrors } from '../../utils/validation';
 
 export default function RoboticSystemsForm() {
     const { state, dispatch } = useProject();
     const [rowErrors, setRowErrors] = useState([]);
-    const moduleConfig = state.modules['robotic_systems'];
+    const moduleConfig = state.modules.robotic_systems;
     const sourcing = moduleConfig?.sourcing || 'Buyout';
 
     const moduleData = state.moduleData.robotic_systems || { robots: [] };
@@ -22,7 +22,7 @@ export default function RoboticSystemsForm() {
             }
         });
 
-        if (rowErrors.length > 0) {
+        if (hasRowErrors(rowErrors)) {
             setRowErrors(validateRobotFleet(newData.robots));
         }
     };
@@ -33,24 +33,23 @@ export default function RoboticSystemsForm() {
     };
 
     const removeRobot = (id) => {
-        updateModuleData({ robots: robots.filter(r => r.id !== id) });
+        updateModuleData({ robots: robots.filter((robot) => robot.id !== id) });
     };
 
     const updateRobot = (id, field, value) => {
-        const updatedRobots = robots.map(r => r.id === id ? { ...r, [field]: value } : r);
+        const updatedRobots = robots.map((robot) => (robot.id === id ? { ...robot, [field]: value } : robot));
         updateModuleData({ robots: updatedRobots });
     };
 
     const handleSave = () => {
         const validationErrors = validateRobotFleet(robots);
 
-        if (validationErrors.some(Boolean)) {
+        if (hasRowErrors(validationErrors)) {
             setRowErrors(validationErrors);
             return;
         }
 
         setRowErrors([]);
-        console.log('Robotic systems data saved:', { robots });
     };
 
     const totalHardwareCost = calculateRoboticsHardwareCost(robots);
@@ -86,7 +85,7 @@ export default function RoboticSystemsForm() {
                 </button>
             </div>
 
-            {rowErrors.some(Boolean) && (
+            {hasRowErrors(rowErrors) && (
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -179,7 +178,7 @@ export default function RoboticSystemsForm() {
                                         )}
                                     </td>
                                     <td style={{ padding: 'var(--space-sm)' }}>
-                                        ${(robot.quantity * robot.unitCost).toLocaleString()}
+                                        ${calculateRobotLineCost(robot).toLocaleString()}
                                     </td>
                                     <td style={{ padding: 'var(--space-sm)' }}>
                                         <button onClick={() => removeRobot(robot.id)} style={{ color: 'var(--color-danger)', border: 'none', background: 'none' }}>
