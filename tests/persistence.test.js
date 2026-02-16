@@ -5,7 +5,9 @@ import {
   hydrateProjectState,
   loadPersistedProjectState,
   persistProjectState,
+  clearPersistedProjectState,
   STORAGE_KEY,
+  STORAGE_VERSION,
 } from '../src/utils/persistence.js';
 
 const defaultState = {
@@ -57,6 +59,31 @@ test('hydrateProjectState preserves default nested module fields when persisted 
   assert.equal(hydrated.moduleData.operational_data.inventory.totalSKUs, 15000);
 });
 
+test('loadPersistedProjectState supports legacy raw-state payloads', () => {
+  const originalWindow = globalThis.window;
+
+  const persisted = {
+    projectInfo: { name: 'Legacy Payload' },
+    moduleData: {
+      operational_data: {
+        throughput: { peakUnitsPerHour: 7000 },
+      },
+    },
+  };
+
+  const fakeStorage = {
+    getItem: () => JSON.stringify(persisted),
+    setItem: () => {},
+  };
+
+  globalThis.window = { localStorage: fakeStorage };
+  const loaded = loadPersistedProjectState(defaultState);
+
+  assert.equal(loaded.projectInfo.name, 'Legacy Payload');
+  assert.equal(loaded.moduleData.operational_data.throughput.averageUnitsPerHour, 3500);
+  globalThis.window = originalWindow;
+});
+
 test('loadPersistedProjectState returns default state on invalid JSON', () => {
   const originalWindow = globalThis.window;
   const fakeStorage = {
@@ -71,7 +98,7 @@ test('loadPersistedProjectState returns default state on invalid JSON', () => {
   globalThis.window = originalWindow;
 });
 
-test('persistProjectState writes serialized state using storage key', () => {
+test('persistProjectState writes storage envelope using storage key', () => {
   const originalWindow = globalThis.window;
   let storedKey = '';
   let storedValue = '';
@@ -88,6 +115,30 @@ test('persistProjectState writes serialized state using storage key', () => {
   persistProjectState(defaultState);
 
   assert.equal(storedKey, STORAGE_KEY);
-  assert.deepEqual(JSON.parse(storedValue), defaultState);
+
+  const parsed = JSON.parse(storedValue);
+  assert.equal(parsed.version, STORAGE_VERSION);
+  assert.equal(typeof parsed.savedAt, 'string');
+  assert.deepEqual(parsed.state, defaultState);
+
+  globalThis.window = originalWindow;
+});
+
+test('clearPersistedProjectState removes the storage key', () => {
+  const originalWindow = globalThis.window;
+  let removedKey = '';
+
+  const fakeStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: (key) => {
+      removedKey = key;
+    },
+  };
+
+  globalThis.window = { localStorage: fakeStorage };
+  clearPersistedProjectState();
+
+  assert.equal(removedKey, STORAGE_KEY);
   globalThis.window = originalWindow;
 });

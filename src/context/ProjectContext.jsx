@@ -161,7 +161,11 @@ export function ProjectProvider({ children }) {
   const [state, dispatch] = useReducer(projectReducer, initialState, loadPersistedProjectState);
 
   useEffect(() => {
-    persistProjectState(state);
+    const timeoutId = window.setTimeout(() => {
+      persistProjectState(state);
+    }, 150);
+
+    return () => window.clearTimeout(timeoutId);
   }, [state]);
 
   return (

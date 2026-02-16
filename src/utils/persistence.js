@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'rom.project.state.v1';
+const STORAGE_VERSION = 1;
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -28,6 +29,15 @@ function deepMerge(defaultValue, persistedValue) {
   return persistedValue === undefined ? defaultValue : persistedValue;
 }
 
+function unwrapPersistedPayload(parsedValue) {
+  // Backward compatibility with the previous raw-state format.
+  if (isObject(parsedValue) && isObject(parsedValue.state)) {
+    return parsedValue.state;
+  }
+
+  return parsedValue;
+}
+
 export function hydrateProjectState(defaultState, persistedState) {
   if (!isObject(persistedState)) {
     return defaultState;
@@ -48,7 +58,8 @@ export function loadPersistedProjectState(defaultState) {
     }
 
     const parsedValue = JSON.parse(rawValue);
-    return hydrateProjectState(defaultState, parsedValue);
+    const payload = unwrapPersistedPayload(parsedValue);
+    return hydrateProjectState(defaultState, payload);
   } catch {
     return defaultState;
   }
@@ -60,10 +71,28 @@ export function persistProjectState(state) {
   }
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const envelope = {
+      version: STORAGE_VERSION,
+      savedAt: new Date().toISOString(),
+      state,
+    };
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
   } catch {
     // Intentionally ignore localStorage write errors.
   }
 }
 
-export { STORAGE_KEY };
+export function clearPersistedProjectState() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Intentionally ignore localStorage removal errors.
+  }
+}
+
+export { STORAGE_KEY, STORAGE_VERSION };
