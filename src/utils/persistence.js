@@ -4,30 +4,36 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function deepMerge(defaultValue, persistedValue) {
+  if (Array.isArray(defaultValue)) {
+    return Array.isArray(persistedValue) ? persistedValue : defaultValue;
+  }
+
+  if (isObject(defaultValue)) {
+    if (!isObject(persistedValue)) {
+      return defaultValue;
+    }
+
+    const merged = { ...defaultValue };
+
+    Object.keys(persistedValue).forEach((key) => {
+      merged[key] = key in defaultValue
+        ? deepMerge(defaultValue[key], persistedValue[key])
+        : persistedValue[key];
+    });
+
+    return merged;
+  }
+
+  return persistedValue === undefined ? defaultValue : persistedValue;
+}
+
 export function hydrateProjectState(defaultState, persistedState) {
   if (!isObject(persistedState)) {
     return defaultState;
   }
 
-  return {
-    ...defaultState,
-    ...persistedState,
-    projectInfo: {
-      ...defaultState.projectInfo,
-      ...(isObject(persistedState.projectInfo) ? persistedState.projectInfo : {}),
-    },
-    modules: {
-      ...defaultState.modules,
-      ...(isObject(persistedState.modules) ? persistedState.modules : {}),
-    },
-    moduleData: {
-      ...defaultState.moduleData,
-      ...(isObject(persistedState.moduleData) ? persistedState.moduleData : {}),
-    },
-    assumptions: Array.isArray(persistedState.assumptions) ? persistedState.assumptions : defaultState.assumptions,
-    requirements: Array.isArray(persistedState.requirements) ? persistedState.requirements : defaultState.requirements,
-    requirementsDocument: persistedState.requirementsDocument ?? defaultState.requirementsDocument,
-  };
+  return deepMerge(defaultState, persistedState);
 }
 
 export function loadPersistedProjectState(defaultState) {

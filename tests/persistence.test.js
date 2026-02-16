@@ -15,7 +15,11 @@ const defaultState = {
     implementation: { id: 'implementation', selected: true, sourcing: 'In-House' },
   },
   moduleData: {
-    operational_data: { throughput: { peakUnitsPerHour: 5000 } },
+    operational_data: {
+      throughput: { peakUnitsPerHour: 5000, averageUnitsPerHour: 3500 },
+      operatingHours: { shiftsPerDay: 2, daysPerWeek: 5 },
+      inventory: { totalSKUs: 15000 },
+    },
   },
   assumptions: [],
   requirements: [],
@@ -36,6 +40,21 @@ test('hydrateProjectState merges persisted values with defaults', () => {
   assert.equal(hydrated.modules.operational_data.selected, true);
   assert.equal(hydrated.modules.robotic_systems.sourcing, 'Buyout');
   assert.equal(hydrated.requirements.length, 1);
+});
+
+test('hydrateProjectState preserves default nested module fields when persisted payload is partial', () => {
+  const hydrated = hydrateProjectState(defaultState, {
+    moduleData: {
+      operational_data: {
+        throughput: { peakUnitsPerHour: 6000 },
+      },
+    },
+  });
+
+  assert.equal(hydrated.moduleData.operational_data.throughput.peakUnitsPerHour, 6000);
+  assert.equal(hydrated.moduleData.operational_data.throughput.averageUnitsPerHour, 3500);
+  assert.equal(hydrated.moduleData.operational_data.operatingHours.shiftsPerDay, 2);
+  assert.equal(hydrated.moduleData.operational_data.inventory.totalSKUs, 15000);
 });
 
 test('loadPersistedProjectState returns default state on invalid JSON', () => {
