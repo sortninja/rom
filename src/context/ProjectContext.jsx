@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { loadPersistedProjectState, persistProjectState } from '../utils/persistence';
 
 const ProjectContext = createContext();
 
@@ -157,7 +158,15 @@ function projectReducer(state, action) {
 }
 
 export function ProjectProvider({ children }) {
-  const [state, dispatch] = useReducer(projectReducer, initialState);
+  const [state, dispatch] = useReducer(projectReducer, initialState, loadPersistedProjectState);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      persistProjectState(state);
+    }, 150);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [state]);
 
   return (
     <ProjectContext.Provider value={{ state, dispatch }}>
