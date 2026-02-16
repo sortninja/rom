@@ -2,10 +2,10 @@ import React from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
 import { calculateConveyanceHardwareCost, calculateRoboticsHardwareCost } from '../utils/costs';
-import { Download, FileText } from 'lucide-react';
+import { AlertTriangle, Download, FileText, RotateCcw } from 'lucide-react';
 
 export default function ProjectExport() {
-    const { state } = useProject();
+    const { state, resetProjectState } = useProject();
     const { projectInfo, modules, moduleData, assumptions, requirements, requirementsDocument } = state;
 
     const generateProjectSummary = () => {
@@ -69,6 +69,16 @@ export default function ProjectExport() {
         link.click();
 
         URL.revokeObjectURL(url);
+    };
+
+
+    const handleResetLocalData = () => {
+        const confirmed = window.confirm('Reset all locally saved ROM project data? This cannot be undone.');
+        if (!confirmed) {
+            return;
+        }
+
+        resetProjectState();
     };
 
     const generateCostEstimate = () => {
@@ -198,6 +208,34 @@ export default function ProjectExport() {
                         <div>
                             <strong>Hybrid:</strong> {summary.sourcingBreakdown.hybrid} modules
                         </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div className="mt-lg">
+                <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Data Management</h3>
+                <div className="card" style={{ background: 'var(--color-bg-body)' }}>
+                    <div className="flex justify-between items-center" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+                        <div className="flex items-center gap-sm">
+                            <AlertTriangle size={16} color="var(--color-warning)" />
+                            <span className="text-small">Reset clears locally persisted data and restores ROM defaults.</span>
+                        </div>
+                        <button
+                            onClick={handleResetLocalData}
+                            className="flex items-center gap-xs"
+                            style={{
+                                border: '1px solid var(--color-danger)',
+                                color: 'var(--color-danger)',
+                                background: '#fff',
+                                borderRadius: 'var(--radius-sm)',
+                                padding: 'var(--space-sm) var(--space-md)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <RotateCcw size={14} />
+                            Reset Local Data
+                        </button>
                     </div>
                 </div>
             </div>
