@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { loadPersistedProjectState, persistProjectState } from '../utils/persistence';
+import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState } from '../utils/persistence';
 
 const ProjectContext = createContext();
 
@@ -151,6 +151,9 @@ function projectReducer(state, action) {
         }
       };
     }
+
+    case 'RESET_PROJECT_STATE':
+      return initialState;
     // Add more reducers as we implement features
     default:
       return state;
@@ -168,8 +171,13 @@ export function ProjectProvider({ children }) {
     return () => window.clearTimeout(timeoutId);
   }, [state]);
 
+  const resetProjectState = () => {
+    clearPersistedProjectState();
+    dispatch({ type: 'RESET_PROJECT_STATE' });
+  };
+
   return (
-    <ProjectContext.Provider value={{ state, dispatch }}>
+    <ProjectContext.Provider value={{ state, dispatch, resetProjectState }}>
       {children}
     </ProjectContext.Provider>
   );
