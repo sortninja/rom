@@ -6,8 +6,12 @@ const ProjectContext = createContext();
 const initialState = {
   projectInfo: {
     name: 'Untitled Project',
+    sales: '',
     lead: '',
-    status: 'DRAFT',
+    contractAward: '',
+    goLive: '',
+    quoteDue: '',
+    status: 'working',
   },
   modules: {
     operational_data: { id: 'operational_data', selected: true, sourcing: 'In-House' },

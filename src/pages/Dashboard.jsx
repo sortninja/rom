@@ -1,195 +1,169 @@
 import React, { useMemo } from 'react';
 import { useProject } from '../context/ProjectContext';
-import { MODULE_DEFINITIONS } from '../data/modules';
 import {
-  calculateConveyanceHardwareCost,
-  calculateRoboticsHardwareCost,
-  calculateStorageInfrastructureCost,
-  calculateControlsElectricalCost,
-  calculateSoftwareSystemsCost,
-  calculateImplementationServicesCost,
-} from '../utils/costs';
+  SAMPLE_QUOTES,
+  addQuoteTotal,
+  buildQuoteFromProjectState,
+  formatCurrency,
+  summarizeQuoteTotals,
+} from '../utils/quotes';
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function DashboardCard({ title, value, subtitle }) {
-  return (
-    <div className="card" style={{ minHeight: 130 }}>
-      <div className="text-small text-muted" style={{ marginBottom: 'var(--space-xs)' }}>{title}</div>
-      <div className="text-h1" style={{ marginBottom: 'var(--space-xs)' }}>{value}</div>
-      {subtitle && <div className="text-small text-muted">{subtitle}</div>}
-    </div>
-  );
-}
-
-function HealthItem({ status, text }) {
-  const color = status === 'warning' ? 'var(--color-warning)' : 'var(--color-success)';
-  return (
-    <div style={{ borderLeft: `4px solid ${color}`, background: 'var(--color-bg-body)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-sm) var(--space-md)' }}>
-      <span className="text-body">{text}</span>
-    </div>
-  );
-}
+const STATUS_OPTIONS = ['working', 'complete'];
 
 export default function Dashboard() {
-  const { state } = useProject();
+  const { state, dispatch } = useProject();
 
-  const metrics = useMemo(() => {
-    const selectedModuleIds = Object.values(state.modules)
-      .filter((module) => module.selected)
-      .map((module) => module.id);
-
-    const selectedCount = selectedModuleIds.length;
-    const totalCount = MODULE_DEFINITIONS.length;
-
-    const sourcingCounts = selectedModuleIds.reduce(
-      (acc, moduleId) => {
-        const sourcing = state.modules[moduleId]?.sourcing;
-        if (sourcing === 'Buyout') acc.buyout += 1;
-        if (sourcing === 'In-House') acc.inHouse += 1;
-        if (sourcing === 'Hybrid') acc.hybrid += 1;
-        return acc;
-      },
-      { buyout: 0, inHouse: 0, hybrid: 0 }
-    );
-
-    const moduleData = state.moduleData;
-    const costByModule = {
-      robotic_systems: calculateRoboticsHardwareCost(moduleData.robotic_systems?.robots || []),
-      conveyance: calculateConveyanceHardwareCost(moduleData.conveyance?.segments || []),
-      storage: calculateStorageInfrastructureCost(moduleData.storage?.zones || []),
-      controls: calculateControlsElectricalCost(moduleData.controls?.panels || []),
-      software: calculateSoftwareSystemsCost(moduleData.software?.applications || []),
-      implementation: calculateImplementationServicesCost(moduleData.implementation?.services || []),
-    };
-
-    const totalEstimate = Object.values(costByModule).reduce((sum, value) => sum + value, 0);
-
-    const selectedModuleRows = MODULE_DEFINITIONS
-      .filter((moduleDefinition) => selectedModuleIds.includes(moduleDefinition.id))
-      .map((moduleDefinition) => ({
-        id: moduleDefinition.id,
-        name: moduleDefinition.name,
-        sourcing: state.modules[moduleDefinition.id]?.sourcing || 'N/A',
-        estimate: costByModule[moduleDefinition.id] || 0,
-      }))
-      .sort((a, b) => b.estimate - a.estimate);
-
+  const { quotes, totals, currentProjectQuote } = useMemo(() => {
+    const derivedCurrentProjectQuote = addQuoteTotal(buildQuoteFromProjectState(state));
+    const rows = [...SAMPLE_QUOTES.map(addQuoteTotal), { ...derivedCurrentProjectQuote, isCurrentProject: true }];
     return {
-      selectedCount,
-      totalCount,
-      sourcingCounts,
-      totalEstimate,
-      selectedModuleRows,
-      assumptionCount: state.assumptions.length,
-      requirementCount: state.requirements.length,
-      missingRequirementsDoc: !state.requirementsDocument,
-      hasNoRequirements: state.requirements.length === 0,
-      hasNoAssumptions: state.assumptions.length === 0,
+      currentProjectQuote: derivedCurrentProjectQuote,
+      quotes: rows,
+      totals: summarizeQuoteTotals(rows),
     };
   }, [state]);
+
+  const updateProjectInfo = (event) => {
+    const { name, value } = event.target;
+    dispatch({
+      type: 'SET_PROJECT_INFO',
+      payload: { [name]: value },
+    });
+  };
 
   return (
     <div className="grid gap-md">
       <div>
-        <h1 className="text-h1">Project Dashboard</h1>
+        <h1 className="text-h1">Quote Pipeline Dashboard</h1>
         <p className="text-body text-muted" style={{ marginBottom: 0 }}>
-          Quick snapshot of project scope, sourcing strategy, cost estimate, and planning maturity.
+          Working and completed quote portfolio with in-house, buyout, and service totals.
         </p>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-md)' }}>
-        <DashboardCard
-          title="Modules Selected"
-          value={`${metrics.selectedCount}/${metrics.totalCount}`}
-          subtitle="Required modules are preselected"
-        />
-        <DashboardCard
-          title="ROM Cost Estimate"
-          value={formatCurrency(metrics.totalEstimate)}
-          subtitle="Hardware + software + implementation"
-        />
-        <DashboardCard
-          title="Assumptions Logged"
-          value={metrics.assumptionCount}
-          subtitle={metrics.assumptionCount ? 'Keep assumptions validated as scope evolves' : 'No assumptions captured yet'}
-        />
-        <DashboardCard
-          title="Requirements Logged"
-          value={metrics.requirementCount}
-          subtitle={metrics.missingRequirementsDoc ? 'No requirements document uploaded' : 'Requirements document attached'}
-        />
-      </div>
-
       <div className="card">
-        <h2 className="text-h2" style={{ marginTop: 0 }}>Project Health</h2>
-        <div className="grid gap-md">
-          <HealthItem
-            status={metrics.hasNoRequirements ? 'warning' : 'ok'}
-            text={metrics.hasNoRequirements ? 'No requirements captured yet — add at least one requirement.' : 'Requirements have been captured.'}
-          />
-          <HealthItem
-            status={metrics.hasNoAssumptions ? 'warning' : 'ok'}
-            text={metrics.hasNoAssumptions ? 'No assumptions logged yet — document key planning assumptions.' : 'Assumptions are documented.'}
-          />
-          <HealthItem
-            status={metrics.missingRequirementsDoc ? 'warning' : 'ok'}
-            text={metrics.missingRequirementsDoc ? 'No requirements source document uploaded yet.' : 'Requirements source document is attached.'}
-          />
+        <h2 className="text-h2" style={{ marginTop: 0 }}>Current Project Quote Details</h2>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-md)' }}>
+          <label>
+            <span className="text-small">Project name</span>
+            <input name="name" value={state.projectInfo.name} onChange={updateProjectInfo} style={inputStyle} />
+          </label>
+          <label>
+            <span className="text-small">Sales</span>
+            <input name="sales" value={state.projectInfo.sales || ''} onChange={updateProjectInfo} style={inputStyle} />
+          </label>
+          <label>
+            <span className="text-small">Lead engineer</span>
+            <input name="lead" value={state.projectInfo.lead || ''} onChange={updateProjectInfo} style={inputStyle} />
+          </label>
+          <label>
+            <span className="text-small">Contract award</span>
+            <input name="contractAward" value={state.projectInfo.contractAward || ''} onChange={updateProjectInfo} style={inputStyle} placeholder="mm/dd//yyyy" />
+          </label>
+          <label>
+            <span className="text-small">Go live</span>
+            <input name="goLive" value={state.projectInfo.goLive || ''} onChange={updateProjectInfo} style={inputStyle} placeholder="mm/dd//yyyy" />
+          </label>
+          <label>
+            <span className="text-small">Quote due</span>
+            <input name="quoteDue" value={state.projectInfo.quoteDue || ''} onChange={updateProjectInfo} style={inputStyle} placeholder="mm/dd//yyyy" />
+          </label>
+          <label>
+            <span className="text-small">Status</span>
+            <select name="status" value={currentProjectQuote.status} onChange={updateProjectInfo} style={inputStyle}>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
-      <div className="card">
-        <h2 className="text-h2" style={{ marginTop: 0 }}>Sourcing Mix</h2>
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-md)' }}>
-          <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)' }}>
-            <div className="text-small text-muted">In-House</div>
-            <div className="text-h2">{metrics.sourcingCounts.inHouse}</div>
-          </div>
-          <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)' }}>
-            <div className="text-small text-muted">Buyout</div>
-            <div className="text-h2">{metrics.sourcingCounts.buyout}</div>
-          </div>
-          <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)' }}>
-            <div className="text-small text-muted">Hybrid</div>
-            <div className="text-h2">{metrics.sourcingCounts.hybrid}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <h2 className="text-h2" style={{ marginTop: 0 }}>Selected Modules Cost Breakdown</h2>
-        {metrics.selectedModuleRows.length === 0 ? (
-          <p className="text-body text-muted" style={{ marginBottom: 0 }}>No optional modules selected.</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>Module</th>
-                  <th style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>Sourcing</th>
-                  <th style={{ textAlign: 'right', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>Estimate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.selectedModuleRows.map((row) => (
-                  <tr key={row.id}>
-                    <td style={{ borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>{row.name}</td>
-                    <td style={{ borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>{row.sourcing}</td>
-                    <td style={{ borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)', textAlign: 'right' }}>{formatCurrency(row.estimate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1140 }}>
+          <thead>
+            <tr>
+              <th style={headerCell}>Project name</th>
+              <th style={headerCell}>Sales</th>
+              <th style={headerCell}>Lead engineer</th>
+              <th style={headerCell}>Contract award</th>
+              <th style={headerCell}>Go live</th>
+              <th style={headerCell}>Quote due</th>
+              <th style={headerCell}>Status</th>
+              <th style={headerCellRight}>In house</th>
+              <th style={headerCellRight}>Buyout</th>
+              <th style={headerCellRight}>Services</th>
+              <th style={headerCellRight}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {quotes.map((quote, index) => (
+              <tr key={`${quote.projectName}-${quote.sales}-${index}`} style={quote.isCurrentProject ? highlightedRowStyle : undefined}>
+                <td style={bodyCell}>{quote.projectName}</td>
+                <td style={bodyCell}>{quote.sales}</td>
+                <td style={bodyCell}>{quote.leadEngineer}</td>
+                <td style={bodyCell}>{quote.contractAward}</td>
+                <td style={bodyCell}>{quote.goLive}</td>
+                <td style={bodyCell}>{quote.quoteDue}</td>
+                <td style={bodyCell}>{quote.status}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.inHouse)}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.total)}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={totalsCell} colSpan={7}>Totals</td>
+              <td style={totalsCellRight}>{formatCurrency(totals.inHouse)}</td>
+              <td style={totalsCellRight}>{formatCurrency(totals.buyout)}</td>
+              <td style={totalsCellRight}>{formatCurrency(totals.services)}</td>
+              <td style={totalsCellRight}>{formatCurrency(totals.total)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
+
+const inputStyle = {
+  width: '100%',
+  marginTop: 'var(--space-xs)',
+  borderRadius: 'var(--radius-sm)',
+  border: '1px solid var(--color-border)',
+  padding: 'var(--space-sm)',
+};
+
+const highlightedRowStyle = {
+  background: 'rgba(37, 99, 235, 0.08)',
+};
+
+const headerCell = {
+  textAlign: 'left',
+  borderBottom: '1px solid var(--color-border)',
+  padding: 'var(--space-sm)',
+};
+
+const headerCellRight = {
+  ...headerCell,
+  textAlign: 'right',
+};
+
+const bodyCell = {
+  borderBottom: '1px solid var(--color-border)',
+  padding: 'var(--space-sm)',
+};
+
+const bodyCellRight = {
+  ...bodyCell,
+  textAlign: 'right',
+};
+
+const totalsCell = {
+  ...bodyCell,
+  fontWeight: 700,
+};
+
+const totalsCellRight = {
+  ...bodyCellRight,
+  fontWeight: 700,
+};
