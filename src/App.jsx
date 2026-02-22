@@ -7,9 +7,7 @@ import Configuration from './pages/Configuration';
 import Export from './pages/Export';
 import Assumptions from './pages/Assumptions';
 import Requirements from './pages/Requirements';
-
-// Placeholder pages
-const Dashboard = () => <div className="card text-h2">Project Dashboard</div>;
+import Dashboard from './pages/Dashboard';
 
 function App() {
     return (
