@@ -1,7 +1,14 @@
 import React, { useMemo } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { calculateConveyanceHardwareCost, calculateRoboticsHardwareCost, calculateStorageInfrastructureCost, calculateControlsElectricalCost, calculateSoftwareSystemsCost, calculateImplementationServicesCost } from '../utils/costs';
+import {
+  calculateConveyanceHardwareCost,
+  calculateRoboticsHardwareCost,
+  calculateStorageInfrastructureCost,
+  calculateControlsElectricalCost,
+  calculateSoftwareSystemsCost,
+  calculateImplementationServicesCost,
+} from '../utils/costs';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
@@ -17,6 +24,15 @@ function DashboardCard({ title, value, subtitle }) {
       <div className="text-small text-muted" style={{ marginBottom: 'var(--space-xs)' }}>{title}</div>
       <div className="text-h1" style={{ marginBottom: 'var(--space-xs)' }}>{value}</div>
       {subtitle && <div className="text-small text-muted">{subtitle}</div>}
+    </div>
+  );
+}
+
+function HealthItem({ status, text }) {
+  const color = status === 'warning' ? 'var(--color-warning)' : 'var(--color-success)';
+  return (
+    <div style={{ borderLeft: `4px solid ${color}`, background: 'var(--color-bg-body)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-sm) var(--space-md)' }}>
+      <span className="text-body">{text}</span>
     </div>
   );
 }
@@ -44,23 +60,38 @@ export default function Dashboard() {
     );
 
     const moduleData = state.moduleData;
-    const roboticsCost = calculateRoboticsHardwareCost(moduleData.robotic_systems?.robots || []);
-    const conveyanceCost = calculateConveyanceHardwareCost(moduleData.conveyance?.segments || []);
-    const storageCost = calculateStorageInfrastructureCost(moduleData.storage?.zones || []);
-    const controlsCost = calculateControlsElectricalCost(moduleData.controls?.panels || []);
-    const softwareAnnualCost = calculateSoftwareSystemsCost(moduleData.software?.applications || []);
-    const implementationCost = calculateImplementationServicesCost(moduleData.implementation?.services || []);
+    const costByModule = {
+      robotic_systems: calculateRoboticsHardwareCost(moduleData.robotic_systems?.robots || []),
+      conveyance: calculateConveyanceHardwareCost(moduleData.conveyance?.segments || []),
+      storage: calculateStorageInfrastructureCost(moduleData.storage?.zones || []),
+      controls: calculateControlsElectricalCost(moduleData.controls?.panels || []),
+      software: calculateSoftwareSystemsCost(moduleData.software?.applications || []),
+      implementation: calculateImplementationServicesCost(moduleData.implementation?.services || []),
+    };
 
-    const totalEstimate = roboticsCost + conveyanceCost + storageCost + controlsCost + softwareAnnualCost + implementationCost;
+    const totalEstimate = Object.values(costByModule).reduce((sum, value) => sum + value, 0);
+
+    const selectedModuleRows = MODULE_DEFINITIONS
+      .filter((moduleDefinition) => selectedModuleIds.includes(moduleDefinition.id))
+      .map((moduleDefinition) => ({
+        id: moduleDefinition.id,
+        name: moduleDefinition.name,
+        sourcing: state.modules[moduleDefinition.id]?.sourcing || 'N/A',
+        estimate: costByModule[moduleDefinition.id] || 0,
+      }))
+      .sort((a, b) => b.estimate - a.estimate);
 
     return {
       selectedCount,
       totalCount,
       sourcingCounts,
       totalEstimate,
+      selectedModuleRows,
       assumptionCount: state.assumptions.length,
       requirementCount: state.requirements.length,
       missingRequirementsDoc: !state.requirementsDocument,
+      hasNoRequirements: state.requirements.length === 0,
+      hasNoAssumptions: state.assumptions.length === 0,
     };
   }, [state]);
 
@@ -97,6 +128,24 @@ export default function Dashboard() {
       </div>
 
       <div className="card">
+        <h2 className="text-h2" style={{ marginTop: 0 }}>Project Health</h2>
+        <div className="grid gap-md">
+          <HealthItem
+            status={metrics.hasNoRequirements ? 'warning' : 'ok'}
+            text={metrics.hasNoRequirements ? 'No requirements captured yet — add at least one requirement.' : 'Requirements have been captured.'}
+          />
+          <HealthItem
+            status={metrics.hasNoAssumptions ? 'warning' : 'ok'}
+            text={metrics.hasNoAssumptions ? 'No assumptions logged yet — document key planning assumptions.' : 'Assumptions are documented.'}
+          />
+          <HealthItem
+            status={metrics.missingRequirementsDoc ? 'warning' : 'ok'}
+            text={metrics.missingRequirementsDoc ? 'No requirements source document uploaded yet.' : 'Requirements source document is attached.'}
+          />
+        </div>
+      </div>
+
+      <div className="card">
         <h2 className="text-h2" style={{ marginTop: 0 }}>Sourcing Mix</h2>
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-md)' }}>
           <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)' }}>
@@ -112,6 +161,34 @@ export default function Dashboard() {
             <div className="text-h2">{metrics.sourcingCounts.hybrid}</div>
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="text-h2" style={{ marginTop: 0 }}>Selected Modules Cost Breakdown</h2>
+        {metrics.selectedModuleRows.length === 0 ? (
+          <p className="text-body text-muted" style={{ marginBottom: 0 }}>No optional modules selected.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>Module</th>
+                  <th style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>Sourcing</th>
+                  <th style={{ textAlign: 'right', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>Estimate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.selectedModuleRows.map((row) => (
+                  <tr key={row.id}>
+                    <td style={{ borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>{row.name}</td>
+                    <td style={{ borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)' }}>{row.sourcing}</td>
+                    <td style={{ borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm)', textAlign: 'right' }}>{formatCurrency(row.estimate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
