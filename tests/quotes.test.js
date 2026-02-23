@@ -7,6 +7,7 @@ import {
   calculateQuoteCostDetails,
   createEmptyQuote,
   formatCurrency,
+  isProjectNumberInUse,
   summarizeQuoteTotals,
 } from '../src/utils/quotes.js';
 
@@ -87,4 +88,17 @@ test('calculateQuoteCostDetails includes moduleBreakdown rows in auto mode', () 
   assert.equal(details.moduleBreakdown.length, 2);
   assert.equal(details.moduleBreakdown[0].moduleId, 'robotic_systems');
   assert.equal(details.moduleBreakdown[1].services, 200);
+});
+
+
+test('isProjectNumberInUse detects duplicates and supports exclusion', () => {
+  const quotes = [
+    { id: 'a', projectNumber: '1001' },
+    { id: 'b', projectNumber: '1002' },
+  ];
+
+  assert.equal(isProjectNumberInUse(quotes, '1001'), true);
+  assert.equal(isProjectNumberInUse(quotes, ' 1001 '), true);
+  assert.equal(isProjectNumberInUse(quotes, '1001', 'a'), false);
+  assert.equal(isProjectNumberInUse(quotes, '9999'), false);
 });

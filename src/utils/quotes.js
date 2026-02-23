@@ -262,3 +262,17 @@ export function createEmptyQuote(overrides = {}) {
     ...overrides,
   };
 }
+
+
+export function isProjectNumberInUse(quotes = [], projectNumber = '', excludeQuoteId = null) {
+  const normalized = String(projectNumber || '').trim().toLowerCase();
+  if (!normalized) return false;
+
+  return quotes.some((quote) => {
+    if (excludeQuoteId && quote.id === excludeQuoteId) {
+      return false;
+    }
+
+    return String(quote.projectNumber || '').trim().toLowerCase() === normalized;
+  });
+}

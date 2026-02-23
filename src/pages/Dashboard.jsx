@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, summarizeQuoteTotals } from '../utils/quotes';
+import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, summarizeQuoteTotals } from '../utils/quotes';
 
 const STATUS_OPTIONS = ['working', 'complete'];
 const PRICING_MODE_OPTIONS = ['manual', 'auto'];
@@ -13,9 +13,25 @@ export default function Dashboard() {
   const [selectedQuoteId, setSelectedQuoteId] = useState(state.projectQuotes[0]?.id || null);
   const [newQuote, setNewQuote] = useState(() => createEmptyQuote());
   const [editQuote, setEditQuote] = useState(null);
+  const [createError, setCreateError] = useState('');
+  const [editError, setEditError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const quotes = useMemo(() => state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [state.moduleData, state.projectQuotes]);
-  const totals = useMemo(() => summarizeQuoteTotals(quotes), [quotes]);
+  const filteredQuotes = useMemo(() => {
+    return quotes.filter((quote) => {
+      const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
+      const normalizedSearch = searchTerm.trim().toLowerCase();
+      const matchesSearch = !normalizedSearch
+        || quote.projectNumber.toLowerCase().includes(normalizedSearch)
+        || quote.projectName.toLowerCase().includes(normalizedSearch)
+        || quote.sales.toLowerCase().includes(normalizedSearch);
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [quotes, searchTerm, statusFilter]);
+  const filteredTotals = useMemo(() => summarizeQuoteTotals(filteredQuotes), [filteredQuotes]);
   const selectedQuote = useMemo(() => state.projectQuotes.find((quote) => quote.id === selectedQuoteId) || null, [selectedQuoteId, state.projectQuotes]);
 
   const moduleNameById = useMemo(
@@ -35,6 +51,11 @@ export default function Dashboard() {
   const handleCreateQuote = (event) => {
     event.preventDefault();
 
+    if (isProjectNumberInUse(state.projectQuotes, newQuote.projectNumber)) {
+      setCreateError('Project # already exists. Please use a unique project number.');
+      return;
+    }
+
     const payload = {
       ...newQuote,
       inHouse: Number(newQuote.inHouse) || 0,
@@ -43,6 +64,7 @@ export default function Dashboard() {
     };
 
     dispatch({ type: 'ADD_PROJECT_QUOTE', payload });
+    setCreateError('');
     setSelectedQuoteId(payload.id);
     setShowNewQuoteForm(false);
     setNewQuote(createEmptyQuote());
@@ -50,17 +72,24 @@ export default function Dashboard() {
 
   const updateNewQuoteField = (event) => {
     const { name, value } = event.target;
+    setCreateError('');
     setNewQuote((prev) => ({ ...prev, [name]: value }));
   };
 
   const updateEditQuoteField = (event) => {
     const { name, value } = event.target;
+    setEditError('');
     setEditQuote((prev) => ({ ...prev, [name]: value }));
   };
 
   const saveEditedQuote = (event) => {
     event.preventDefault();
     if (!editQuote?.id) return;
+
+    if (isProjectNumberInUse(state.projectQuotes, editQuote.projectNumber, editQuote.id)) {
+      setEditError('Project # already exists. Please use a unique project number.');
+      return;
+    }
 
     dispatch({
       type: 'UPDATE_PROJECT_QUOTE',
@@ -74,6 +103,7 @@ export default function Dashboard() {
         },
       },
     });
+    setEditError('');
   };
 
   const removeQuote = (quoteId) => {
@@ -94,6 +124,7 @@ export default function Dashboard() {
         defaultSourcing: moduleDefinition.defaultSourcing || moduleDefinition.sourcingOptions[0] || 'In-House',
       },
     });
+    setEditError('');
   };
 
   const setQuoteModuleSourcing = (quoteId, moduleId, sourcing) => {
@@ -101,6 +132,7 @@ export default function Dashboard() {
       type: 'SET_PROJECT_QUOTE_MODULE_SOURCING',
       payload: { quoteId, moduleId, sourcing },
     });
+    setEditError('');
   };
 
   return (
@@ -146,6 +178,7 @@ export default function Dashboard() {
             <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={newQuote.services} onChange={updateNewQuoteField} style={inputStyle} disabled={newQuote.pricingMode === 'auto'} /></label>
             <div className="flex items-end"><button type="submit" style={primaryButtonStyle}>Create Quote</button></div>
             {newQuote.pricingMode === 'auto' && <div className="text-small text-muted">Auto mode derives in-house/buyout/services from selected quote modules and current configuration data.</div>}
+            {createError && <div style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{createError}</div>}
           </form>
         </div>
       )}
@@ -160,6 +193,24 @@ export default function Dashboard() {
 
       {!showNewQuoteForm && (
         <>
+          <div className="card">
+            <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+              <div className="flex items-center gap-md" style={{ flexWrap: 'wrap' }}>
+                <input
+                  placeholder="Search by project #, name, or sales"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  style={{ ...inputStyle, marginTop: 0, width: 320 }}
+                />
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={{ ...inputStyle, marginTop: 0, width: 180 }}>
+                  <option value="all">All statuses</option>
+                  {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+                </select>
+              </div>
+              <span className="text-small text-muted">Showing {filteredQuotes.length} of {quotes.length} quotes</span>
+            </div>
+          </div>
+
           <div className="card" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
               <thead>
@@ -181,7 +232,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {quotes.map((quote) => (
+                {filteredQuotes.map((quote) => (
                   <tr key={quote.id} style={selectedQuoteId === quote.id ? highlightedRowStyle : undefined}>
                     <td style={bodyCell}>
                       <button type="button" onClick={() => setSelectedQuoteId(quote.id)} style={jobNumberButtonStyle}>{quote.projectNumber}</button>
@@ -207,10 +258,10 @@ export default function Dashboard() {
                 ))}
                 <tr>
                   <td style={totalsCell} colSpan={9}>Totals</td>
-                  <td style={totalsCellRight}>{formatCurrency(totals.inHouse)}</td>
-                  <td style={totalsCellRight}>{formatCurrency(totals.buyout)}</td>
-                  <td style={totalsCellRight}>{formatCurrency(totals.services)}</td>
-                  <td style={totalsCellRight}>{formatCurrency(totals.total)}</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.inHouse)}</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.buyout)}</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.services)}</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.total)}</td>
                   <td style={totalsCell} />
                 </tr>
               </tbody>
@@ -248,6 +299,7 @@ export default function Dashboard() {
                 <label><span className="text-small">Buyout</span><input name="buyout" type="number" min="0" step="0.01" value={editQuote.buyout} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
                 <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={editQuote.services} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
                 {editQuote.pricingMode === 'auto' && <div className="text-small text-muted">Auto mode derives in-house/buyout/services from selected quote modules and current configuration data.</div>}
+                {editError && <div style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{editError}</div>}
               </form>
             </div>
           )}
