@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
-import { MODULE_DEFINITIONS } from '../data/modules';
-import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, normalizeQuote, sortQuotes, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
-
-const STATUS_OPTIONS = ['working', 'complete'];
-const PRICING_MODE_OPTIONS = ['manual', 'auto'];
+import {
+  SAMPLE_QUOTES,
+  addQuoteTotal,
+  buildQuoteFromProjectState,
+  formatCurrency,
+  summarizeQuoteTotals,
+} from '../utils/quotes';
 
 export default function Dashboard() {
   const { state, dispatch } = useProject();
@@ -110,7 +112,7 @@ export default function Dashboard() {
       return;
     }
 
-    if (isProjectNumberInUse(state.projectQuotes, editQuote.projectNumber, editQuote.id)) {
+    if (isProjectNumberInUse(projectQuotes, editQuote.projectNumber, editQuote.id)) {
       setEditError('Project # already exists. Please use a unique project number.');
       return;
     }
@@ -138,7 +140,7 @@ export default function Dashboard() {
 
     dispatch({ type: 'REMOVE_PROJECT_QUOTE', payload: quoteId });
     if (selectedQuoteId === quoteId) {
-      const remaining = state.projectQuotes.filter((quote) => quote.id !== quoteId);
+      const remaining = projectQuotes.filter((quote) => quote.id !== quoteId);
       setSelectedQuoteId(remaining[0]?.id || null);
     }
   };
@@ -166,17 +168,11 @@ export default function Dashboard() {
 
   return (
     <div className="grid gap-md">
-      <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
-        <div>
-          <h1 className="text-h1">Quote Pipeline Dashboard</h1>
-          <p className="text-body text-muted" style={{ marginBottom: 0 }}>
-            Track working/completed quotes and manage quote-specific module associations.
-          </p>
-        </div>
-        <button type="button" onClick={() => setShowNewQuoteForm((prev) => !prev)} className="flex items-center gap-sm" style={primaryButtonStyle}>
-          <Plus size={16} />
-          {showNewQuoteForm ? 'Close Form' : 'New Quote'}
-        </button>
+      <div>
+        <h1 className="text-h1">Quote Pipeline Dashboard</h1>
+        <p className="text-body text-muted" style={{ marginBottom: 0 }}>
+          Working and completed quote portfolio with in-house, buyout, and service totals.
+        </p>
       </div>
 
       {showNewQuoteForm && (
@@ -452,55 +448,6 @@ function QuoteModulesPanel({ selectedQuote, toggleQuoteModule, setQuoteModuleSou
     </div>
   );
 }
-
-const primaryButtonStyle = {
-  background: 'var(--color-primary)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 'var(--radius-sm)',
-  padding: 'var(--space-sm) var(--space-md)',
-  cursor: 'pointer',
-};
-
-
-const secondaryButtonStyle = {
-  border: '1px solid var(--color-primary)',
-  color: 'var(--color-primary)',
-  background: '#fff',
-  borderRadius: 'var(--radius-sm)',
-  padding: 'var(--space-sm) var(--space-md)',
-  cursor: 'pointer',
-};
-
-const iconDangerButton = {
-  border: '1px solid var(--color-danger)',
-  color: 'var(--color-danger)',
-  background: '#fff',
-  borderRadius: 'var(--radius-sm)',
-  padding: '4px 8px',
-  cursor: 'pointer',
-};
-
-const inputStyle = {
-  width: '100%',
-  marginTop: 'var(--space-xs)',
-  borderRadius: 'var(--radius-sm)',
-  border: '1px solid var(--color-border)',
-  padding: 'var(--space-sm)',
-};
-
-const jobNumberButtonStyle = {
-  border: 'none',
-  background: 'transparent',
-  color: 'var(--color-primary)',
-  textDecoration: 'underline',
-  cursor: 'pointer',
-  padding: 0,
-};
-
-const highlightedRowStyle = {
-  background: 'rgba(37, 99, 235, 0.08)',
-};
 
 const headerCell = {
   textAlign: 'left',
