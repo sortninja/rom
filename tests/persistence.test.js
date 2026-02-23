@@ -6,7 +6,6 @@ import {
   loadPersistedProjectState,
   persistProjectState,
   clearPersistedProjectState,
-  normalizePersistedRequirementsDocument,
   preparePersistedProjectState,
   STORAGE_KEY,
   STORAGE_VERSION,
@@ -279,26 +278,4 @@ test('persistProjectState applies prepareState callback when provided', () => {
   assert.equal(parsed.state.requirementsDocument.size, 2048);
 
   globalThis.window = originalWindow;
-});
-
-
-test('normalizePersistedRequirementsDocument coerces persisted document shape safely', () => {
-  assert.equal(normalizePersistedRequirementsDocument(null), null);
-  assert.equal(normalizePersistedRequirementsDocument('bad'), null);
-
-  const normalized = normalizePersistedRequirementsDocument({
-    name: 'reqs.pdf',
-    size: '2048',
-    type: 42,
-    lastModified: '1700000123',
-    persistedAs: 'file-metadata',
-  });
-
-  assert.deepEqual(normalized, {
-    name: 'reqs.pdf',
-    size: 2048,
-    type: '',
-    lastModified: 1700000123,
-    persistedAs: 'file-metadata',
-  });
 });

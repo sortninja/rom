@@ -1,11 +1,5 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import {
-  clearPersistedProjectState,
-  loadPersistedProjectState,
-  normalizePersistedRequirementsDocument,
-  persistProjectState,
-  preparePersistedProjectState,
-} from '../utils/persistence';
+import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState, preparePersistedProjectState } from '../utils/persistence';
 import { normalizeQuote, SAMPLE_QUOTES } from '../utils/quotes';
 
 const ProjectContext = createContext();
@@ -82,7 +76,6 @@ const initialState = {
 };
 
 
-
 function normalizeLoadedProjectState(state) {
   const normalizedQuotes = Array.isArray(state.projectQuotes)
     ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object').map((quote) => normalizeQuote(quote))
@@ -92,7 +85,6 @@ function normalizeLoadedProjectState(state) {
     ...state,
     assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
     requirements: Array.isArray(state.requirements) ? state.requirements : [],
-    requirementsDocument: normalizePersistedRequirementsDocument(state.requirementsDocument),
     projectQuotes: normalizedQuotes,
   };
 }
