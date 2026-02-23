@@ -1,13 +1,18 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState } from '../utils/persistence';
+import { SAMPLE_QUOTES } from '../utils/quotes';
 
 const ProjectContext = createContext();
 
 const initialState = {
   projectInfo: {
     name: 'Untitled Project',
+    sales: '',
     lead: '',
-    status: 'DRAFT',
+    contractAward: '',
+    goLive: '',
+    quoteDue: '',
+    status: 'working',
   },
   modules: {
     operational_data: { id: 'operational_data', selected: true, sourcing: 'In-House' },
@@ -66,6 +71,8 @@ const initialState = {
   assumptions: [],
   requirements: [],
   requirementsDocument: null,
+
+  projectQuotes: SAMPLE_QUOTES,
 };
 
 function projectReducer(state, action) {
@@ -149,6 +156,70 @@ function projectReducer(state, action) {
           ...state.moduleData,
           [moduleId]: data
         }
+      };
+    }
+
+    case 'ADD_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: [...state.projectQuotes, action.payload],
+      };
+
+    case 'UPDATE_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => (
+          quote.id === action.payload.id ? { ...quote, ...action.payload.updates } : quote
+        )),
+      };
+
+    case 'REMOVE_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.filter((quote) => quote.id !== action.payload),
+      };
+
+    case 'TOGGLE_PROJECT_QUOTE_MODULE': {
+      const { quoteId, moduleId, isSelected, defaultSourcing } = action.payload;
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => {
+          if (quote.id !== quoteId) return quote;
+
+          const nextModules = { ...(quote.modules || {}) };
+          if (isSelected) {
+            nextModules[moduleId] = {
+              id: moduleId,
+              selected: true,
+              sourcing: defaultSourcing,
+            };
+          } else {
+            delete nextModules[moduleId];
+          }
+
+          return { ...quote, modules: nextModules };
+        }),
+      };
+    }
+
+    case 'SET_PROJECT_QUOTE_MODULE_SOURCING': {
+      const { quoteId, moduleId, sourcing } = action.payload;
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => {
+          if (quote.id !== quoteId || !quote.modules?.[moduleId]) return quote;
+
+          return {
+            ...quote,
+            modules: {
+              ...quote.modules,
+              [moduleId]: {
+                ...quote.modules[moduleId],
+                sourcing,
+              },
+            },
+          };
+        }),
       };
     }
 
