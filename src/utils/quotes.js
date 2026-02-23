@@ -221,11 +221,33 @@ export function calculateQuoteBuckets(quote, moduleData = {}) {
   return calculateQuoteCostDetails(quote, moduleData).buckets;
 }
 
+
+
+export function normalizeQuote(rawQuote = {}) {
+  return {
+    id: rawQuote.id || crypto.randomUUID(),
+    projectNumber: String(rawQuote.projectNumber ?? '').trim(),
+    projectName: String(rawQuote.projectName ?? '').trim(),
+    sales: String(rawQuote.sales ?? '').trim(),
+    leadEngineer: String(rawQuote.leadEngineer ?? '').trim(),
+    contractAward: String(rawQuote.contractAward ?? '').trim(),
+    goLive: String(rawQuote.goLive ?? '').trim(),
+    quoteDue: String(rawQuote.quoteDue ?? '').trim(),
+    status: rawQuote.status === 'complete' ? 'complete' : 'working',
+    pricingMode: rawQuote.pricingMode === 'auto' ? 'auto' : 'manual',
+    inHouse: Number(rawQuote.inHouse || 0),
+    buyout: Number(rawQuote.buyout || 0),
+    services: Number(rawQuote.services || 0),
+    modules: rawQuote.modules && typeof rawQuote.modules === 'object' ? rawQuote.modules : {},
+  };
+}
+
 export function addQuoteTotal(quote, moduleData) {
-  const quoteBuckets = calculateQuoteBuckets(quote, moduleData);
+  const normalizedQuote = normalizeQuote(quote);
+  const quoteBuckets = calculateQuoteBuckets(normalizedQuote, moduleData);
 
   return {
-    ...quote,
+    ...normalizedQuote,
     ...quoteBuckets,
     total: Number(quoteBuckets.inHouse || 0) + Number(quoteBuckets.buyout || 0) + Number(quoteBuckets.services || 0),
   };
@@ -244,7 +266,7 @@ export function summarizeQuoteTotals(quotes = []) {
 }
 
 export function createEmptyQuote(overrides = {}) {
-  return {
+  return normalizeQuote({
     id: crypto.randomUUID(),
     projectNumber: '',
     projectName: '',
@@ -260,7 +282,7 @@ export function createEmptyQuote(overrides = {}) {
     services: 0,
     modules: {},
     ...overrides,
-  };
+  });
 }
 
 

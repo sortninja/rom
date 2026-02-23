@@ -9,6 +9,7 @@ import {
   formatCurrency,
   isProjectNumberInUse,
   isValidDateString,
+  normalizeQuote,
   sortQuotes,
   summarizeQuoteTotals,
   validateQuoteFields,
@@ -140,4 +141,14 @@ test('sortQuotes supports project number, total, and quote due sorting', () => {
   assert.deepEqual(sortQuotes(rows, 'projectNumberAsc').map((row) => row.projectNumber), ['1001', '1002', '1003']);
   assert.deepEqual(sortQuotes(rows, 'totalDesc').map((row) => row.total), [500, 200, 100]);
   assert.deepEqual(sortQuotes(rows, 'quoteDueAsc').map((row) => row.projectNumber), ['1001', '1002', '1003']);
+});
+
+
+test('normalizeQuote guards missing fields and enforces known modes/status', () => {
+  const normalized = normalizeQuote({ projectNumber: 42, status: 'DRAFT', pricingMode: 'weird' });
+
+  assert.equal(normalized.projectNumber, '42');
+  assert.equal(normalized.status, 'working');
+  assert.equal(normalized.pricingMode, 'manual');
+  assert.equal(typeof normalized.modules, 'object');
 });

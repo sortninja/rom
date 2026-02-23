@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, sortQuotes, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
+import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, normalizeQuote, sortQuotes, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
 
 const STATUS_OPTIONS = ['working', 'complete'];
 const PRICING_MODE_OPTIONS = ['manual', 'auto'];
@@ -34,7 +34,10 @@ export default function Dashboard() {
   }, [quotes, searchTerm, statusFilter]);
   const sortedQuotes = useMemo(() => sortQuotes(filteredQuotes, sortBy), [filteredQuotes, sortBy]);
   const filteredTotals = useMemo(() => summarizeQuoteTotals(sortedQuotes), [sortedQuotes]);
-  const selectedQuote = useMemo(() => state.projectQuotes.find((quote) => quote.id === selectedQuoteId) || null, [selectedQuoteId, state.projectQuotes]);
+  const selectedQuote = useMemo(() => {
+    const matchedQuote = state.projectQuotes.find((quote) => quote.id === selectedQuoteId);
+    return matchedQuote ? normalizeQuote(matchedQuote) : null;
+  }, [selectedQuoteId, state.projectQuotes]);
 
   const moduleNameById = useMemo(
     () => Object.fromEntries(MODULE_DEFINITIONS.map((moduleDefinition) => [moduleDefinition.id, moduleDefinition.name])),
@@ -47,7 +50,7 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
-    setEditQuote(selectedQuote ? { ...selectedQuote } : null);
+    setEditQuote(selectedQuote ? normalizeQuote(selectedQuote) : null);
   }, [selectedQuoteId, selectedQuote]);
 
   const handleCreateQuote = (event) => {
