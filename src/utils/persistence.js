@@ -96,7 +96,41 @@ export function loadPersistedProjectState(defaultState, options = {}) {
   }
 }
 
-export function persistProjectState(state) {
+
+function toSerializableRequirementsDocument(requirementsDocument) {
+  if (!requirementsDocument || typeof requirementsDocument !== 'object') {
+    return requirementsDocument ?? null;
+  }
+
+  const looksLikeFile = typeof requirementsDocument.name === 'string'
+    && typeof requirementsDocument.size === 'number'
+    && typeof requirementsDocument.type === 'string';
+
+  if (!looksLikeFile) {
+    return requirementsDocument;
+  }
+
+  return {
+    name: requirementsDocument.name,
+    size: requirementsDocument.size,
+    type: requirementsDocument.type,
+    lastModified: Number(requirementsDocument.lastModified || 0),
+    persistedAs: 'file-metadata',
+  };
+}
+
+export function preparePersistedProjectState(state) {
+  if (!state || typeof state !== 'object') {
+    return state;
+  }
+
+  return {
+    ...state,
+    requirementsDocument: toSerializableRequirementsDocument(state.requirementsDocument),
+  };
+}
+
+export function persistProjectState(state, options = {}) {
   if (typeof window === 'undefined' || !window.localStorage) {
     return;
   }
@@ -105,7 +139,7 @@ export function persistProjectState(state) {
     const envelope = {
       version: STORAGE_VERSION,
       savedAt: new Date().toISOString(),
-      state,
+      state: typeof options.prepareState === 'function' ? options.prepareState(state) : state,
     };
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
