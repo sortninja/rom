@@ -6,6 +6,7 @@ import {
   loadPersistedProjectState,
   persistProjectState,
   clearPersistedProjectState,
+  preparePersistedProjectState,
   STORAGE_KEY,
   STORAGE_VERSION,
 } from '../src/utils/persistence.js';

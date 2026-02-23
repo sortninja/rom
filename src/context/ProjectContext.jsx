@@ -254,7 +254,7 @@ export function ProjectProvider({ children }) {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      persistProjectState(state);
+      persistProjectState(state, { prepareState: preparePersistedProjectState });
     }, 150);
 
     return () => window.clearTimeout(timeoutId);
