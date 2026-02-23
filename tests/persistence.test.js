@@ -142,3 +142,37 @@ test('clearPersistedProjectState removes the storage key', () => {
   assert.equal(removedKey, STORAGE_KEY);
   globalThis.window = originalWindow;
 });
+
+
+test('loadPersistedProjectState applies normalizeState callback when provided', () => {
+  const originalWindow = globalThis.window;
+  const fakeStorage = {
+    getItem: () => JSON.stringify({
+      state: {
+        assumptions: 'not-an-array',
+        requirements: null,
+        projectQuotes: [{ id: 'q1', projectNumber: 1001 }, null, 'bad'],
+      },
+    }),
+    setItem: () => {},
+  };
+
+  globalThis.window = { localStorage: fakeStorage };
+  const loaded = loadPersistedProjectState(defaultState, {
+    normalizeState: (state) => ({
+      ...state,
+      assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
+      requirements: Array.isArray(state.requirements) ? state.requirements : [],
+      projectQuotes: Array.isArray(state.projectQuotes)
+        ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object')
+        : [],
+    }),
+  });
+
+  assert.deepEqual(loaded.assumptions, []);
+  assert.deepEqual(loaded.requirements, []);
+  assert.equal(loaded.projectQuotes.length, 1);
+  assert.equal(loaded.projectQuotes[0].projectNumber, 1001);
+
+  globalThis.window = originalWindow;
+});

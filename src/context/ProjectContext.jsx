@@ -1,13 +1,18 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState } from '../utils/persistence';
+import { normalizeQuote, SAMPLE_QUOTES } from '../utils/quotes';
 
 const ProjectContext = createContext();
 
 const initialState = {
   projectInfo: {
     name: 'Untitled Project',
+    sales: '',
     lead: '',
-    status: 'DRAFT',
+    contractAward: '',
+    goLive: '',
+    quoteDue: '',
+    status: 'working',
   },
   modules: {
     operational_data: { id: 'operational_data', selected: true, sourcing: 'In-House' },
@@ -66,7 +71,23 @@ const initialState = {
   assumptions: [],
   requirements: [],
   requirementsDocument: null,
+
+  projectQuotes: SAMPLE_QUOTES,
 };
+
+
+function normalizeLoadedProjectState(state) {
+  const normalizedQuotes = Array.isArray(state.projectQuotes)
+    ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object').map((quote) => normalizeQuote(quote))
+    : [];
+
+  return {
+    ...state,
+    assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
+    requirements: Array.isArray(state.requirements) ? state.requirements : [],
+    projectQuotes: normalizedQuotes,
+  };
+}
 
 function projectReducer(state, action) {
   switch (action.type) {
@@ -152,6 +173,70 @@ function projectReducer(state, action) {
       };
     }
 
+    case 'ADD_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: [...state.projectQuotes, action.payload],
+      };
+
+    case 'UPDATE_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => (
+          quote.id === action.payload.id ? { ...quote, ...action.payload.updates } : quote
+        )),
+      };
+
+    case 'REMOVE_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.filter((quote) => quote.id !== action.payload),
+      };
+
+    case 'TOGGLE_PROJECT_QUOTE_MODULE': {
+      const { quoteId, moduleId, isSelected, defaultSourcing } = action.payload;
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => {
+          if (quote.id !== quoteId) return quote;
+
+          const nextModules = { ...(quote.modules || {}) };
+          if (isSelected) {
+            nextModules[moduleId] = {
+              id: moduleId,
+              selected: true,
+              sourcing: defaultSourcing,
+            };
+          } else {
+            delete nextModules[moduleId];
+          }
+
+          return { ...quote, modules: nextModules };
+        }),
+      };
+    }
+
+    case 'SET_PROJECT_QUOTE_MODULE_SOURCING': {
+      const { quoteId, moduleId, sourcing } = action.payload;
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => {
+          if (quote.id !== quoteId || !quote.modules?.[moduleId]) return quote;
+
+          return {
+            ...quote,
+            modules: {
+              ...quote.modules,
+              [moduleId]: {
+                ...quote.modules[moduleId],
+                sourcing,
+              },
+            },
+          };
+        }),
+      };
+    }
+
     case 'RESET_PROJECT_STATE':
       return initialState;
     // Add more reducers as we implement features
@@ -161,7 +246,11 @@ function projectReducer(state, action) {
 }
 
 export function ProjectProvider({ children }) {
-  const [state, dispatch] = useReducer(projectReducer, initialState, loadPersistedProjectState);
+  const [state, dispatch] = useReducer(
+    projectReducer,
+    initialState,
+    (defaultState) => loadPersistedProjectState(defaultState, { normalizeState: normalizeLoadedProjectState })
+  );
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
