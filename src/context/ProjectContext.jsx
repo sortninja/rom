@@ -84,6 +84,24 @@ const initialState = {
 
 
 
+
+function normalizeProjectInfo(projectInfo, defaultProjectInfo) {
+  if (!projectInfo || typeof projectInfo !== 'object') {
+    return defaultProjectInfo;
+  }
+
+  return {
+    ...defaultProjectInfo,
+    name: String(projectInfo.name ?? defaultProjectInfo.name),
+    sales: String(projectInfo.sales ?? defaultProjectInfo.sales),
+    lead: String(projectInfo.lead ?? defaultProjectInfo.lead),
+    contractAward: String(projectInfo.contractAward ?? defaultProjectInfo.contractAward),
+    goLive: String(projectInfo.goLive ?? defaultProjectInfo.goLive),
+    quoteDue: String(projectInfo.quoteDue ?? defaultProjectInfo.quoteDue),
+    status: projectInfo.status === 'complete' ? 'complete' : 'working',
+  };
+}
+
 function normalizeProjectQuote(rawQuote = {}) {
   return {
     id: rawQuote.id || crypto.randomUUID(),
@@ -110,6 +128,9 @@ function normalizeLoadedProjectState(state) {
 
   return {
     ...state,
+    projectInfo: normalizeProjectInfo(state.projectInfo, initialState.projectInfo),
+    modules: state.modules && typeof state.modules === 'object' ? state.modules : initialState.modules,
+    moduleData: state.moduleData && typeof state.moduleData === 'object' ? state.moduleData : initialState.moduleData,
     assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
     requirements: Array.isArray(state.requirements) ? state.requirements : [],
     requirementsDocument: normalizePersistedRequirementsDocument(state.requirementsDocument),
