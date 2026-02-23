@@ -1,3 +1,12 @@
+import {
+  calculateConveyanceHardwareCost,
+  calculateControlsElectricalCost,
+  calculateImplementationServicesCost,
+  calculateRoboticsHardwareCost,
+  calculateSoftwareSystemsCost,
+  calculateStorageInfrastructureCost,
+} from './costs.js';
+
 export const SAMPLE_QUOTES = [
   {
     id: 'sample-1',
@@ -9,6 +18,7 @@ export const SAMPLE_QUOTES = [
     goLive: 'mm/dd//yyyy',
     quoteDue: 'mm/dd//yyyy',
     status: 'working',
+    pricingMode: 'manual',
     inHouse: 10000,
     buyout: 30000,
     services: 10000,
@@ -24,6 +34,7 @@ export const SAMPLE_QUOTES = [
     goLive: 'mm/dd//yyyy',
     quoteDue: 'mm/dd//yyyy',
     status: 'complete',
+    pricingMode: 'manual',
     inHouse: 25123,
     buyout: 13584,
     services: 9676.75,
@@ -39,6 +50,7 @@ export const SAMPLE_QUOTES = [
     goLive: 'mm/dd//yyyy',
     quoteDue: 'mm/dd//yyyy',
     status: 'working',
+    pricingMode: 'manual',
     inHouse: 0,
     buyout: 1550015,
     services: 186001.8,
@@ -54,6 +66,7 @@ export const SAMPLE_QUOTES = [
     goLive: 'mm/dd//yyyy',
     quoteDue: 'mm/dd//yyyy',
     status: 'complete',
+    pricingMode: 'manual',
     inHouse: 2000,
     buyout: 1510,
     services: 877.5,
@@ -69,6 +82,7 @@ export const SAMPLE_QUOTES = [
     goLive: 'mm/dd//yyyy',
     quoteDue: 'mm/dd//yyyy',
     status: 'complete',
+    pricingMode: 'manual',
     inHouse: 16258,
     buyout: 545115,
     services: 39296.11,
@@ -84,6 +98,7 @@ export const SAMPLE_QUOTES = [
     goLive: 'mm/dd//yyyy',
     quoteDue: 'mm/dd//yyyy',
     status: 'complete',
+    pricingMode: 'manual',
     inHouse: 250000,
     buyout: 0,
     services: 62500,
@@ -99,6 +114,7 @@ export const SAMPLE_QUOTES = [
     goLive: 'mm/dd//yyyy',
     quoteDue: 'mm/dd//yyyy',
     status: 'working',
+    pricingMode: 'manual',
     inHouse: 0,
     buyout: 250000,
     services: 17500,
@@ -119,10 +135,71 @@ export function formatCurrency(value) {
   }).format(value);
 }
 
-export function addQuoteTotal(quote) {
+function getModuleBaseCosts(moduleData = {}) {
+  return {
+    robotic_systems: calculateRoboticsHardwareCost(moduleData.robotic_systems?.robots || []),
+    conveyance: calculateConveyanceHardwareCost(moduleData.conveyance?.segments || []),
+    storage: calculateStorageInfrastructureCost(moduleData.storage?.zones || []),
+    controls: calculateControlsElectricalCost(moduleData.controls?.panels || []),
+    software: calculateSoftwareSystemsCost(moduleData.software?.applications || []),
+    implementation: calculateImplementationServicesCost(moduleData.implementation?.services || []),
+  };
+}
+
+export function calculateQuoteBuckets(quote, moduleData = {}) {
+  const quotePricingMode = quote?.pricingMode || 'manual';
+
+  if (quotePricingMode !== 'auto') {
+    return {
+      inHouse: Number(quote?.inHouse || 0),
+      buyout: Number(quote?.buyout || 0),
+      services: Number(quote?.services || 0),
+    };
+  }
+
+  const moduleBaseCosts = getModuleBaseCosts(moduleData);
+  let inHouse = 0;
+  let buyout = 0;
+
+  Object.entries(quote?.modules || {}).forEach(([moduleId, module]) => {
+    if (!module?.selected) {
+      return;
+    }
+
+    const moduleCost = moduleBaseCosts[moduleId] || 0;
+
+    if (moduleId === 'implementation') {
+      return;
+    }
+
+    if (module.sourcing === 'In-House') {
+      inHouse += moduleCost;
+      return;
+    }
+
+    if (module.sourcing === 'Hybrid') {
+      inHouse += moduleCost * 0.5;
+      buyout += moduleCost * 0.5;
+      return;
+    }
+
+    buyout += moduleCost;
+  });
+
+  return {
+    inHouse,
+    buyout,
+    services: moduleBaseCosts.implementation || 0,
+  };
+}
+
+export function addQuoteTotal(quote, moduleData) {
+  const quoteBuckets = calculateQuoteBuckets(quote, moduleData);
+
   return {
     ...quote,
-    total: Number(quote.inHouse || 0) + Number(quote.buyout || 0) + Number(quote.services || 0),
+    ...quoteBuckets,
+    total: Number(quoteBuckets.inHouse || 0) + Number(quoteBuckets.buyout || 0) + Number(quoteBuckets.services || 0),
   };
 }
 
@@ -149,6 +226,7 @@ export function createEmptyQuote(overrides = {}) {
     goLive: '',
     quoteDue: '',
     status: 'working',
+    pricingMode: 'manual',
     inHouse: 0,
     buyout: 0,
     services: 0,

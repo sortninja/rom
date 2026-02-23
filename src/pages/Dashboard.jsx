@@ -5,6 +5,7 @@ import { MODULE_DEFINITIONS } from '../data/modules';
 import { addQuoteTotal, createEmptyQuote, formatCurrency, summarizeQuoteTotals } from '../utils/quotes';
 
 const STATUS_OPTIONS = ['working', 'complete'];
+const PRICING_MODE_OPTIONS = ['manual', 'auto'];
 
 export default function Dashboard() {
   const { state, dispatch } = useProject();
@@ -13,7 +14,7 @@ export default function Dashboard() {
   const [newQuote, setNewQuote] = useState(() => createEmptyQuote());
   const [editQuote, setEditQuote] = useState(null);
 
-  const quotes = useMemo(() => state.projectQuotes.map(addQuoteTotal), [state.projectQuotes]);
+  const quotes = useMemo(() => state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [state.moduleData, state.projectQuotes]);
   const totals = useMemo(() => summarizeQuoteTotals(quotes), [quotes]);
   const selectedQuote = useMemo(() => state.projectQuotes.find((quote) => quote.id === selectedQuoteId) || null, [selectedQuoteId, state.projectQuotes]);
 
@@ -124,10 +125,17 @@ export default function Dashboard() {
                 {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
               </select>
             </label>
-            <label><span className="text-small">In house</span><input name="inHouse" type="number" min="0" step="0.01" value={newQuote.inHouse} onChange={updateNewQuoteField} style={inputStyle} /></label>
-            <label><span className="text-small">Buyout</span><input name="buyout" type="number" min="0" step="0.01" value={newQuote.buyout} onChange={updateNewQuoteField} style={inputStyle} /></label>
-            <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={newQuote.services} onChange={updateNewQuoteField} style={inputStyle} /></label>
+            <label>
+              <span className="text-small">Pricing mode</span>
+              <select name="pricingMode" value={newQuote.pricingMode} onChange={updateNewQuoteField} style={inputStyle}>
+                {PRICING_MODE_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+              </select>
+            </label>
+            <label><span className="text-small">In house</span><input name="inHouse" type="number" min="0" step="0.01" value={newQuote.inHouse} onChange={updateNewQuoteField} style={inputStyle} disabled={newQuote.pricingMode === 'auto'} /></label>
+            <label><span className="text-small">Buyout</span><input name="buyout" type="number" min="0" step="0.01" value={newQuote.buyout} onChange={updateNewQuoteField} style={inputStyle} disabled={newQuote.pricingMode === 'auto'} /></label>
+            <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={newQuote.services} onChange={updateNewQuoteField} style={inputStyle} disabled={newQuote.pricingMode === 'auto'} /></label>
             <div className="flex items-end"><button type="submit" style={primaryButtonStyle}>Create Quote</button></div>
+            {newQuote.pricingMode === 'auto' && <div className="text-small text-muted">Auto mode derives in-house/buyout/services from selected quote modules and current configuration data.</div>}
           </form>
         </div>
       )}
@@ -154,6 +162,7 @@ export default function Dashboard() {
                   <th style={headerCell}>Go live</th>
                   <th style={headerCell}>Quote due</th>
                   <th style={headerCell}>Status</th>
+                  <th style={headerCell}>Pricing</th>
                   <th style={headerCellRight}>In house</th>
                   <th style={headerCellRight}>Buyout</th>
                   <th style={headerCellRight}>Services</th>
@@ -174,6 +183,7 @@ export default function Dashboard() {
                     <td style={bodyCell}>{quote.goLive}</td>
                     <td style={bodyCell}>{quote.quoteDue}</td>
                     <td style={bodyCell}>{quote.status}</td>
+                    <td style={bodyCell}>{quote.pricingMode}</td>
                     <td style={bodyCellRight}>{formatCurrency(quote.inHouse)}</td>
                     <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
                     <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
@@ -186,7 +196,7 @@ export default function Dashboard() {
                   </tr>
                 ))}
                 <tr>
-                  <td style={totalsCell} colSpan={8}>Totals</td>
+                  <td style={totalsCell} colSpan={9}>Totals</td>
                   <td style={totalsCellRight}>{formatCurrency(totals.inHouse)}</td>
                   <td style={totalsCellRight}>{formatCurrency(totals.buyout)}</td>
                   <td style={totalsCellRight}>{formatCurrency(totals.services)}</td>
@@ -219,9 +229,15 @@ export default function Dashboard() {
                     {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
                   </select>
                 </label>
-                <label><span className="text-small">In house</span><input name="inHouse" type="number" min="0" step="0.01" value={editQuote.inHouse} onChange={updateEditQuoteField} style={inputStyle} /></label>
-                <label><span className="text-small">Buyout</span><input name="buyout" type="number" min="0" step="0.01" value={editQuote.buyout} onChange={updateEditQuoteField} style={inputStyle} /></label>
-                <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={editQuote.services} onChange={updateEditQuoteField} style={inputStyle} /></label>
+                <label><span className="text-small">Pricing mode</span>
+                  <select name="pricingMode" value={editQuote.pricingMode} onChange={updateEditQuoteField} style={inputStyle}>
+                    {PRICING_MODE_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+                  </select>
+                </label>
+                <label><span className="text-small">In house</span><input name="inHouse" type="number" min="0" step="0.01" value={editQuote.inHouse} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
+                <label><span className="text-small">Buyout</span><input name="buyout" type="number" min="0" step="0.01" value={editQuote.buyout} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
+                <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={editQuote.services} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
+                {editQuote.pricingMode === 'auto' && <div className="text-small text-muted">Auto mode derives in-house/buyout/services from selected quote modules and current configuration data.</div>}
               </form>
             </div>
           )}

@@ -11,13 +11,13 @@ export default function ProjectExport() {
   const { state, resetProjectState } = useProject();
 
   const quotePortfolio = useMemo(() => {
-    const rows = state.projectQuotes.map(addQuoteTotal);
+    const rows = state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData));
 
     return {
       rows,
       totals: summarizeQuoteTotals(rows),
     };
-  }, [state.projectQuotes]);
+  }, [state.moduleData, state.projectQuotes]);
 
   const exportToJSON = () => {
     const data = {
