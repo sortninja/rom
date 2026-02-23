@@ -359,3 +359,38 @@ export function validateQuoteFields(quote) {
 
   return errors;
 }
+
+
+function parseMmDdYyyy(value) {
+  if (!isValidDateString(value)) {
+    return null;
+  }
+
+  const [month, day, year] = value.split('/').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function sortQuotes(quotes = [], sortBy = 'projectNumberAsc') {
+  const rows = [...quotes];
+
+  rows.sort((left, right) => {
+    if (sortBy === 'totalDesc') {
+      return Number(right.total || 0) - Number(left.total || 0);
+    }
+
+    if (sortBy === 'quoteDueAsc') {
+      const leftDate = parseMmDdYyyy(left.quoteDue);
+      const rightDate = parseMmDdYyyy(right.quoteDue);
+
+      if (!leftDate && !rightDate) return 0;
+      if (!leftDate) return 1;
+      if (!rightDate) return -1;
+
+      return leftDate.getTime() - rightDate.getTime();
+    }
+
+    return String(left.projectNumber || '').localeCompare(String(right.projectNumber || ''), undefined, { numeric: true });
+  });
+
+  return rows;
+}

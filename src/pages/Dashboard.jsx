@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
+import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, sortQuotes, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
 
 const STATUS_OPTIONS = ['working', 'complete'];
 const PRICING_MODE_OPTIONS = ['manual', 'auto'];
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [editError, setEditError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('projectNumberAsc');
 
   const quotes = useMemo(() => state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [state.moduleData, state.projectQuotes]);
   const filteredQuotes = useMemo(() => {
@@ -31,7 +32,8 @@ export default function Dashboard() {
       return matchesStatus && matchesSearch;
     });
   }, [quotes, searchTerm, statusFilter]);
-  const filteredTotals = useMemo(() => summarizeQuoteTotals(filteredQuotes), [filteredQuotes]);
+  const sortedQuotes = useMemo(() => sortQuotes(filteredQuotes, sortBy), [filteredQuotes, sortBy]);
+  const filteredTotals = useMemo(() => summarizeQuoteTotals(sortedQuotes), [sortedQuotes]);
   const selectedQuote = useMemo(() => state.projectQuotes.find((quote) => quote.id === selectedQuoteId) || null, [selectedQuoteId, state.projectQuotes]);
 
   const moduleNameById = useMemo(
@@ -218,8 +220,14 @@ export default function Dashboard() {
                   <option value="all">All statuses</option>
                   {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
                 </select>
+                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} style={{ ...inputStyle, marginTop: 0, width: 210 }}>
+                  <option value="projectNumberAsc">Sort: Project # (asc)</option>
+                  <option value="totalDesc">Sort: Total (high to low)</option>
+                  <option value="quoteDueAsc">Sort: Quote due (soonest)</option>
+                </select>
+                <button type="button" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setSortBy('projectNumberAsc'); }} style={secondaryButtonStyle}>Clear</button>
               </div>
-              <span className="text-small text-muted">Showing {filteredQuotes.length} of {quotes.length} quotes</span>
+              <span className="text-small text-muted">Showing {sortedQuotes.length} of {quotes.length} quotes</span>
             </div>
           </div>
 
@@ -244,7 +252,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filteredQuotes.map((quote) => (
+                {sortedQuotes.map((quote) => (
                   <tr key={quote.id} style={selectedQuoteId === quote.id ? highlightedRowStyle : undefined}>
                     <td style={bodyCell}>
                       <button type="button" onClick={() => setSelectedQuoteId(quote.id)} style={jobNumberButtonStyle}>{quote.projectNumber}</button>
@@ -405,6 +413,16 @@ const primaryButtonStyle = {
   background: 'var(--color-primary)',
   color: '#fff',
   border: 'none',
+  borderRadius: 'var(--radius-sm)',
+  padding: 'var(--space-sm) var(--space-md)',
+  cursor: 'pointer',
+};
+
+
+const secondaryButtonStyle = {
+  border: '1px solid var(--color-primary)',
+  color: 'var(--color-primary)',
+  background: '#fff',
   borderRadius: 'var(--radius-sm)',
   padding: 'var(--space-sm) var(--space-md)',
   cursor: 'pointer',

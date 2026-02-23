@@ -9,6 +9,7 @@ import {
   formatCurrency,
   isProjectNumberInUse,
   isValidDateString,
+  sortQuotes,
   summarizeQuoteTotals,
   validateQuoteFields,
 } from '../src/utils/quotes.js';
@@ -126,4 +127,17 @@ test('validateQuoteFields enforces required fields and date ordering', () => {
 
   assert.equal(errors.includes('Quote due must be on or before contract award.'), true);
   assert.equal(errors.includes('Contract award must be on or before go live.'), true);
+});
+
+
+test('sortQuotes supports project number, total, and quote due sorting', () => {
+  const rows = [
+    { projectNumber: '1002', total: 200, quoteDue: '05/10/2026' },
+    { projectNumber: '1001', total: 500, quoteDue: '04/01/2026' },
+    { projectNumber: '1003', total: 100, quoteDue: '' },
+  ];
+
+  assert.deepEqual(sortQuotes(rows, 'projectNumberAsc').map((row) => row.projectNumber), ['1001', '1002', '1003']);
+  assert.deepEqual(sortQuotes(rows, 'totalDesc').map((row) => row.total), [500, 200, 100]);
+  assert.deepEqual(sortQuotes(rows, 'quoteDueAsc').map((row) => row.projectNumber), ['1001', '1002', '1003']);
 });
