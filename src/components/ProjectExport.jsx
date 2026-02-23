@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useProject } from '../context/ProjectContext';
+import { MODULE_DEFINITIONS } from '../data/modules';
 import { AlertTriangle, Download, FileText, RotateCcw } from 'lucide-react';
 import {
   SAMPLE_QUOTES,
@@ -23,6 +24,18 @@ export default function ProjectExport() {
     };
   }, [state]);
 
+
+
+  const moduleNameById = useMemo(
+    () => Object.fromEntries(MODULE_DEFINITIONS.map((moduleDefinition) => [moduleDefinition.id, moduleDefinition.name])),
+    []
+  );
+
+  const getSelectedModuleNames = (quote) => {
+    return Object.entries(quote.modules || {})
+      .filter(([, module]) => module?.selected)
+      .map(([moduleId]) => moduleNameById[moduleId] || moduleId);
+  };
   const exportToJSON = () => {
     const data = {
       projectInfo: state.projectInfo,
@@ -59,10 +72,13 @@ export default function ProjectExport() {
       'Buyout',
       'Services',
       'Total',
+      'Selected modules',
     ];
 
-    const rowToCsv = (row) => (
-      [
+    const rowToCsv = (row) => {
+      const selectedModules = getSelectedModuleNames(row);
+      return [
+        row.projectNumber,
         row.projectName,
         row.sales,
         row.leadEngineer,
@@ -74,13 +90,14 @@ export default function ProjectExport() {
         row.buyout,
         row.services,
         row.total,
+        selectedModules.join(' | '),
       ]
         .map((value) => `"${value}"`)
-        .join(',')
-    );
+        .join(',');
+    };
 
     const rows = quotePortfolio.rows.map(rowToCsv);
-    rows.push(`"Totals","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}"`);
+    rows.push(`"Totals","","","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}",""`);
 
     const csvContent = `${headers.join(',')}\n${rows.join('\n')}\n`;
 
@@ -138,7 +155,7 @@ export default function ProjectExport() {
               {['Project name', 'Sales', 'Lead engineer', 'Contract award', 'Go live', 'Quote due', 'Status'].map((heading) => (
                 <th key={heading} style={headerCell}>{heading}</th>
               ))}
-              {['In house', 'Buyout', 'Services', 'Total'].map((heading) => (
+              {['In house', 'Buyout', 'Services', 'Total', 'Modules'].map((heading) => (
                 <th key={heading} style={headerCellRight}>{heading}</th>
               ))}
             </tr>
@@ -157,6 +174,7 @@ export default function ProjectExport() {
                 <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
                 <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
                 <td style={bodyCellRight}>{formatCurrency(quote.total)}</td>
+                <td style={bodyCell}>{getSelectedModuleNames(quote).length ? getSelectedModuleNames(quote).join(', ') : 'None'}</td>
               </tr>
             ))}
             <tr>
@@ -165,6 +183,7 @@ export default function ProjectExport() {
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.buyout)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.services)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.total)}</td>
+              <td style={totalsCell}>-</td>
             </tr>
           </tbody>
         </table>
