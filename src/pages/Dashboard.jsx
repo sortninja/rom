@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
-import { MODULE_DEFINITIONS } from '../data/modules';
-import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, normalizeQuote, sortQuotes, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
-
-const STATUS_OPTIONS = ['working', 'complete'];
-const PRICING_MODE_OPTIONS = ['manual', 'auto'];
+import {
+  SAMPLE_QUOTES,
+  addQuoteTotal,
+  buildQuoteFromProjectState,
+  formatCurrency,
+  summarizeQuoteTotals,
+} from '../utils/quotes';
 
 export default function Dashboard() {
   const { state, dispatch } = useProject();
@@ -18,20 +20,22 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('projectNumberAsc');
+  const [pricingModeFilter, setPricingModeFilter] = useState('all');
 
   const quotes = useMemo(() => state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [state.moduleData, state.projectQuotes]);
   const filteredQuotes = useMemo(() => {
     return quotes.filter((quote) => {
       const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
+      const matchesPricingMode = pricingModeFilter === 'all' || quote.pricingMode === pricingModeFilter;
       const normalizedSearch = searchTerm.trim().toLowerCase();
       const matchesSearch = !normalizedSearch
         || quote.projectNumber.toLowerCase().includes(normalizedSearch)
         || quote.projectName.toLowerCase().includes(normalizedSearch)
         || quote.sales.toLowerCase().includes(normalizedSearch);
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesPricingMode && matchesSearch;
     });
-  }, [quotes, searchTerm, statusFilter]);
+  }, [pricingModeFilter, quotes, searchTerm, statusFilter]);
   const sortedQuotes = useMemo(() => sortQuotes(filteredQuotes, sortBy), [filteredQuotes, sortBy]);
   const filteredTotals = useMemo(() => summarizeQuoteTotals(sortedQuotes), [sortedQuotes]);
   const pipelineMetrics = useMemo(() => ({
@@ -108,7 +112,7 @@ export default function Dashboard() {
       return;
     }
 
-    if (isProjectNumberInUse(state.projectQuotes, editQuote.projectNumber, editQuote.id)) {
+    if (isProjectNumberInUse(projectQuotes, editQuote.projectNumber, editQuote.id)) {
       setEditError('Project # already exists. Please use a unique project number.');
       return;
     }
@@ -129,9 +133,14 @@ export default function Dashboard() {
   };
 
   const removeQuote = (quoteId) => {
+    const confirmed = window.confirm('Delete this quote? This action cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
     dispatch({ type: 'REMOVE_PROJECT_QUOTE', payload: quoteId });
     if (selectedQuoteId === quoteId) {
-      const remaining = state.projectQuotes.filter((quote) => quote.id !== quoteId);
+      const remaining = projectQuotes.filter((quote) => quote.id !== quoteId);
       setSelectedQuoteId(remaining[0]?.id || null);
     }
   };
@@ -159,17 +168,11 @@ export default function Dashboard() {
 
   return (
     <div className="grid gap-md">
-      <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
-        <div>
-          <h1 className="text-h1">Quote Pipeline Dashboard</h1>
-          <p className="text-body text-muted" style={{ marginBottom: 0 }}>
-            Track working/completed quotes and manage quote-specific module associations.
-          </p>
-        </div>
-        <button type="button" onClick={() => setShowNewQuoteForm((prev) => !prev)} className="flex items-center gap-sm" style={primaryButtonStyle}>
-          <Plus size={16} />
-          {showNewQuoteForm ? 'Close Form' : 'New Quote'}
-        </button>
+      <div>
+        <h1 className="text-h1">Quote Pipeline Dashboard</h1>
+        <p className="text-body text-muted" style={{ marginBottom: 0 }}>
+          Working and completed quote portfolio with in-house, buyout, and service totals.
+        </p>
       </div>
 
       {showNewQuoteForm && (
@@ -247,12 +250,16 @@ export default function Dashboard() {
                   <option value="all">All statuses</option>
                   {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
                 </select>
+                <select value={pricingModeFilter} onChange={(event) => setPricingModeFilter(event.target.value)} style={{ ...inputStyle, marginTop: 0, width: 180 }}>
+                  <option value="all">All pricing modes</option>
+                  {PRICING_MODE_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+                </select>
                 <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} style={{ ...inputStyle, marginTop: 0, width: 210 }}>
                   <option value="projectNumberAsc">Sort: Project # (asc)</option>
                   <option value="totalDesc">Sort: Total (high to low)</option>
                   <option value="quoteDueAsc">Sort: Quote due (soonest)</option>
                 </select>
-                <button type="button" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setSortBy('projectNumberAsc'); }} style={secondaryButtonStyle}>Clear</button>
+                <button type="button" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setPricingModeFilter('all'); setSortBy('projectNumberAsc'); }} style={secondaryButtonStyle}>Clear</button>
               </div>
               <span className="text-small text-muted">Showing {sortedQuotes.length} of {quotes.length} quotes</span>
             </div>
@@ -275,12 +282,13 @@ export default function Dashboard() {
                   <th style={headerCellRight}>Buyout</th>
                   <th style={headerCellRight}>Services</th>
                   <th style={headerCellRight}>Total</th>
+                  <th style={headerCell}>Modules</th>
                   <th style={headerCell}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedQuotes.length === 0 ? (
-                  <tr><td style={bodyCell} colSpan={14}>No quotes match the current filters.</td></tr>
+                  <tr><td style={bodyCell} colSpan={15}>No quotes match the current filters.</td></tr>
                 ) : sortedQuotes.map((quote) => (
                   <tr key={quote.id} style={selectedQuoteId === quote.id ? highlightedRowStyle : undefined}>
                     <td style={bodyCell}>
@@ -298,6 +306,7 @@ export default function Dashboard() {
                     <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
                     <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
                     <td style={bodyCellRight}>{formatCurrency(quote.total)}</td>
+                    <td style={bodyCell}>{Object.values(quote.modules || {}).filter((module) => module?.selected).length}</td>
                     <td style={bodyCell}>
                       <button type="button" onClick={() => removeQuote(quote.id)} style={iconDangerButton} aria-label="Delete quote">
                         <Trash2 size={14} />
@@ -311,6 +320,7 @@ export default function Dashboard() {
                   <td style={totalsCellRight}>{formatCurrency(filteredTotals.buyout)}</td>
                   <td style={totalsCellRight}>{formatCurrency(filteredTotals.services)}</td>
                   <td style={totalsCellRight}>{formatCurrency(filteredTotals.total)}</td>
+                  <td style={totalsCell}>{sortedQuotes.reduce((acc, quote) => acc + Object.values(quote.modules || {}).filter((module) => module?.selected).length, 0)}</td>
                   <td style={totalsCell} />
                 </tr>
               </tbody>
@@ -400,6 +410,7 @@ function QuoteModulesPanel({ selectedQuote, toggleQuoteModule, setQuoteModuleSou
   return (
     <div className="card">
       <h2 className="text-h2" style={{ marginTop: 0 }}>Quote Modules for Job #{selectedQuote.projectNumber}</h2>
+      <p className="text-small text-muted" style={{ marginTop: 0 }}>Selected modules: {Object.values(selectedQuote.modules || {}).filter((module) => module?.selected).length}</p>
       <p className="text-small text-muted" style={{ marginTop: 0 }}>Module assignment for the currently selected quote.</p>
       <div className="grid gap-md">
         {MODULE_DEFINITIONS.map((moduleDefinition) => {
@@ -437,55 +448,6 @@ function QuoteModulesPanel({ selectedQuote, toggleQuoteModule, setQuoteModuleSou
     </div>
   );
 }
-
-const primaryButtonStyle = {
-  background: 'var(--color-primary)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 'var(--radius-sm)',
-  padding: 'var(--space-sm) var(--space-md)',
-  cursor: 'pointer',
-};
-
-
-const secondaryButtonStyle = {
-  border: '1px solid var(--color-primary)',
-  color: 'var(--color-primary)',
-  background: '#fff',
-  borderRadius: 'var(--radius-sm)',
-  padding: 'var(--space-sm) var(--space-md)',
-  cursor: 'pointer',
-};
-
-const iconDangerButton = {
-  border: '1px solid var(--color-danger)',
-  color: 'var(--color-danger)',
-  background: '#fff',
-  borderRadius: 'var(--radius-sm)',
-  padding: '4px 8px',
-  cursor: 'pointer',
-};
-
-const inputStyle = {
-  width: '100%',
-  marginTop: 'var(--space-xs)',
-  borderRadius: 'var(--radius-sm)',
-  border: '1px solid var(--color-border)',
-  padding: 'var(--space-sm)',
-};
-
-const jobNumberButtonStyle = {
-  border: 'none',
-  background: 'transparent',
-  color: 'var(--color-primary)',
-  textDecoration: 'underline',
-  cursor: 'pointer',
-  padding: 0,
-};
-
-const highlightedRowStyle = {
-  background: 'rgba(37, 99, 235, 0.08)',
-};
 
 const headerCell = {
   textAlign: 'left',
