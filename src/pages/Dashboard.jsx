@@ -1,18 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
-import {
-  SAMPLE_QUOTES,
-  addQuoteTotal,
-  buildQuoteFromProjectState,
-  formatCurrency,
-  summarizeQuoteTotals,
-} from '../utils/quotes';
+import { MODULE_DEFINITIONS } from '../data/modules';
+import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, normalizeQuote, sortQuotes, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
+
+const STATUS_OPTIONS = ['working', 'complete'];
+const PRICING_MODE_OPTIONS = ['manual', 'auto'];
 
 export default function Dashboard() {
   const { state, dispatch } = useProject();
   const [showNewQuoteForm, setShowNewQuoteForm] = useState(false);
-  const [selectedQuoteId, setSelectedQuoteId] = useState(state.projectQuotes[0]?.id || null);
+  const projectQuotes = useMemo(() => (Array.isArray(state.projectQuotes) ? state.projectQuotes : []), [state.projectQuotes]);
+  const [selectedQuoteId, setSelectedQuoteId] = useState(projectQuotes[0]?.id || null);
   const [newQuote, setNewQuote] = useState(() => createEmptyQuote());
   const [editQuote, setEditQuote] = useState(null);
   const [createError, setCreateError] = useState('');
@@ -22,7 +21,7 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState('projectNumberAsc');
   const [pricingModeFilter, setPricingModeFilter] = useState('all');
 
-  const quotes = useMemo(() => state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [state.moduleData, state.projectQuotes]);
+  const quotes = useMemo(() => projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [projectQuotes, state.moduleData]);
   const filteredQuotes = useMemo(() => {
     return quotes.filter((quote) => {
       const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
@@ -44,9 +43,9 @@ export default function Dashboard() {
     autoPricing: sortedQuotes.filter((quote) => quote.pricingMode === 'auto').length,
   }), [sortedQuotes]);
   const selectedQuote = useMemo(() => {
-    const matchedQuote = state.projectQuotes.find((quote) => quote.id === selectedQuoteId);
+    const matchedQuote = projectQuotes.find((quote) => quote.id === selectedQuoteId);
     return matchedQuote ? normalizeQuote(matchedQuote) : null;
-  }, [selectedQuoteId, state.projectQuotes]);
+  }, [projectQuotes, selectedQuoteId]);
 
   const moduleNameById = useMemo(
     () => Object.fromEntries(MODULE_DEFINITIONS.map((moduleDefinition) => [moduleDefinition.id, moduleDefinition.name])),
@@ -58,9 +57,27 @@ export default function Dashboard() {
     [selectedQuote, state.moduleData]
   );
 
+
+  const selectedQuoteWithTotals = useMemo(
+    () => (selectedQuote ? addQuoteTotal(selectedQuote, state.moduleData) : null),
+    [selectedQuote, state.moduleData]
+  );
+
   useEffect(() => {
     setEditQuote(selectedQuote ? normalizeQuote(selectedQuote) : null);
   }, [selectedQuoteId, selectedQuote]);
+
+  useEffect(() => {
+    if (projectQuotes.length === 0) {
+      setSelectedQuoteId(null);
+      return;
+    }
+
+    if (!projectQuotes.some((quote) => quote.id === selectedQuoteId)) {
+      setSelectedQuoteId(projectQuotes[0].id);
+    }
+  }, [projectQuotes, selectedQuoteId]);
+
 
   const handleCreateQuote = (event) => {
     event.preventDefault();
@@ -71,7 +88,7 @@ export default function Dashboard() {
       return;
     }
 
-    if (isProjectNumberInUse(state.projectQuotes, newQuote.projectNumber)) {
+    if (isProjectNumberInUse(projectQuotes, newQuote.projectNumber)) {
       setCreateError('Project # already exists. Please use a unique project number.');
       return;
     }
@@ -168,11 +185,17 @@ export default function Dashboard() {
 
   return (
     <div className="grid gap-md">
-      <div>
-        <h1 className="text-h1">Quote Pipeline Dashboard</h1>
-        <p className="text-body text-muted" style={{ marginBottom: 0 }}>
-          Working and completed quote portfolio with in-house, buyout, and service totals.
-        </p>
+      <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="text-h1">Quote Pipeline Dashboard</h1>
+          <p className="text-body text-muted" style={{ marginBottom: 0 }}>
+            Track working/completed quotes and manage quote-specific module associations.
+          </p>
+        </div>
+        <button type="button" onClick={() => setShowNewQuoteForm((prev) => !prev)} className="flex items-center gap-sm" style={primaryButtonStyle}>
+          <Plus size={16} />
+          {showNewQuoteForm ? 'Close Form' : 'New Quote'}
+        </button>
       </div>
 
       {showNewQuoteForm && (
@@ -327,6 +350,52 @@ export default function Dashboard() {
             </table>
           </div>
 
+
+          {selectedQuoteWithTotals && (
+            <div className="card">
+              <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+                <h2 className="text-h2" style={{ marginTop: 0, marginBottom: 0 }}>
+                  Selected Quote Snapshot — Job #{selectedQuoteWithTotals.projectNumber}
+                </h2>
+                <span className="text-small text-muted">{selectedQuoteWithTotals.pricingMode} pricing</span>
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-md)' }}>
+                <div>
+                  <div className="text-small text-muted">Project</div>
+                  <div style={{ fontWeight: 600 }}>{selectedQuoteWithTotals.projectName || 'Untitled'}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Status</div>
+                  <div style={{ fontWeight: 600 }}>{selectedQuoteWithTotals.status}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Selected modules</div>
+                  <div style={{ fontWeight: 600 }}>{Object.values(selectedQuoteWithTotals.modules || {}).filter((module) => module?.selected).length}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">In house</div>
+                  <div style={{ fontWeight: 600 }}>{formatCurrency(selectedQuoteWithTotals.inHouse)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Buyout</div>
+                  <div style={{ fontWeight: 600 }}>{formatCurrency(selectedQuoteWithTotals.buyout)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Services</div>
+                  <div style={{ fontWeight: 600 }}>{formatCurrency(selectedQuoteWithTotals.services)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Total</div>
+                  <div style={{ fontWeight: 700 }}>{formatCurrency(selectedQuoteWithTotals.total)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Quote due</div>
+                  <div style={{ fontWeight: 600 }}>{selectedQuoteWithTotals.quoteDue || '-'}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {editQuote && (
             <div className="card">
               <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
@@ -448,6 +517,55 @@ function QuoteModulesPanel({ selectedQuote, toggleQuoteModule, setQuoteModuleSou
     </div>
   );
 }
+
+const primaryButtonStyle = {
+  background: 'var(--color-primary)',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 'var(--radius-sm)',
+  padding: 'var(--space-sm) var(--space-md)',
+  cursor: 'pointer',
+};
+
+
+const secondaryButtonStyle = {
+  border: '1px solid var(--color-primary)',
+  color: 'var(--color-primary)',
+  background: '#fff',
+  borderRadius: 'var(--radius-sm)',
+  padding: 'var(--space-sm) var(--space-md)',
+  cursor: 'pointer',
+};
+
+const iconDangerButton = {
+  border: '1px solid var(--color-danger)',
+  color: 'var(--color-danger)',
+  background: '#fff',
+  borderRadius: 'var(--radius-sm)',
+  padding: '4px 8px',
+  cursor: 'pointer',
+};
+
+const inputStyle = {
+  width: '100%',
+  marginTop: 'var(--space-xs)',
+  borderRadius: 'var(--radius-sm)',
+  border: '1px solid var(--color-border)',
+  padding: 'var(--space-sm)',
+};
+
+const jobNumberButtonStyle = {
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--color-primary)',
+  textDecoration: 'underline',
+  cursor: 'pointer',
+  padding: 0,
+};
+
+const highlightedRowStyle = {
+  background: 'rgba(37, 99, 235, 0.08)',
+};
 
 const headerCell = {
   textAlign: 'left',

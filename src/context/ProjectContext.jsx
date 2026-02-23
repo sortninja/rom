@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState } from '../utils/persistence';
-import { normalizeQuote, SAMPLE_QUOTES } from '../utils/quotes';
+import {
+  clearPersistedProjectState,
+  loadPersistedProjectState,
+  normalizePersistedRequirementsDocument,
+  persistProjectState,
+  preparePersistedProjectState,
+} from '../utils/persistence';
+import { SAMPLE_QUOTES } from '../utils/quotes';
 
 const ProjectContext = createContext();
 
@@ -76,15 +82,37 @@ const initialState = {
 };
 
 
+
+
+function normalizeProjectQuote(rawQuote = {}) {
+  return {
+    id: rawQuote.id || crypto.randomUUID(),
+    projectNumber: String(rawQuote.projectNumber ?? '').trim(),
+    projectName: String(rawQuote.projectName ?? '').trim(),
+    sales: String(rawQuote.sales ?? '').trim(),
+    leadEngineer: String(rawQuote.leadEngineer ?? '').trim(),
+    contractAward: String(rawQuote.contractAward ?? '').trim(),
+    goLive: String(rawQuote.goLive ?? '').trim(),
+    quoteDue: String(rawQuote.quoteDue ?? '').trim(),
+    status: rawQuote.status === 'complete' ? 'complete' : 'working',
+    pricingMode: rawQuote.pricingMode === 'auto' ? 'auto' : 'manual',
+    inHouse: Number(rawQuote.inHouse || 0),
+    buyout: Number(rawQuote.buyout || 0),
+    services: Number(rawQuote.services || 0),
+    modules: rawQuote.modules && typeof rawQuote.modules === 'object' ? rawQuote.modules : {},
+  };
+}
+
 function normalizeLoadedProjectState(state) {
   const normalizedQuotes = Array.isArray(state.projectQuotes)
-    ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object').map((quote) => normalizeQuote(quote))
+    ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object').map((quote) => normalizeProjectQuote(quote))
     : [];
 
   return {
     ...state,
     assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
     requirements: Array.isArray(state.requirements) ? state.requirements : [],
+    requirementsDocument: normalizePersistedRequirementsDocument(state.requirementsDocument),
     projectQuotes: normalizedQuotes,
   };
 }

@@ -79,7 +79,11 @@ export function loadPersistedProjectState(defaultState, options = {}) {
     }
 
     const parsedValue = JSON.parse(rawValue);
-    const payload = unwrapPersistedPayload(parsedValue);
+    const payload = readPersistedPayload(parsedValue, options);
+    if (!payload) {
+      return defaultState;
+    }
+
     const hydratedState = hydrateProjectState(defaultState, payload);
 
     if (typeof options.normalizeState === 'function') {
@@ -93,6 +97,34 @@ export function loadPersistedProjectState(defaultState, options = {}) {
 }
 
 
+
+export function normalizePersistedRequirementsDocument(requirementsDocument) {
+  if (!requirementsDocument || typeof requirementsDocument !== 'object') {
+    return null;
+  }
+
+  if (typeof requirementsDocument.name !== 'string') {
+    return null;
+  }
+
+  const normalized = {
+    name: requirementsDocument.name,
+    type: typeof requirementsDocument.type === 'string' ? requirementsDocument.type : '',
+    size: Number(requirementsDocument.size || 0),
+    lastModified: Number(requirementsDocument.lastModified || 0),
+  };
+
+  if (typeof requirementsDocument.textPreview === 'string') {
+    normalized.textPreview = requirementsDocument.textPreview;
+  }
+
+  if (typeof requirementsDocument.persistedAs === 'string') {
+    normalized.persistedAs = requirementsDocument.persistedAs;
+  }
+
+  return normalized;
+}
+
 function toSerializableRequirementsDocument(requirementsDocument) {
   if (!requirementsDocument || typeof requirementsDocument !== 'object') {
     return requirementsDocument ?? null;
@@ -103,14 +135,11 @@ function toSerializableRequirementsDocument(requirementsDocument) {
     && typeof requirementsDocument.type === 'string';
 
   if (!looksLikeFile) {
-    return requirementsDocument;
+    return normalizePersistedRequirementsDocument(requirementsDocument);
   }
 
   return {
-    name: requirementsDocument.name,
-    size: requirementsDocument.size,
-    type: requirementsDocument.type,
-    lastModified: Number(requirementsDocument.lastModified || 0),
+    ...normalizePersistedRequirementsDocument(requirementsDocument),
     persistedAs: 'file-metadata',
   };
 }
