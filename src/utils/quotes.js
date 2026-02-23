@@ -122,6 +122,13 @@ export const SAMPLE_QUOTES = [
   },
 ];
 
+
+export function toCsvCell(value) {
+  const normalizedValue = String(value ?? '');
+  const escapedValue = normalizedValue.replaceAll('"', '""');
+  return `"${escapedValue}"`;
+}
+
 export function formatCurrency(value) {
   if (!value) {
     return '$ -';

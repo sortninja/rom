@@ -7,6 +7,7 @@ import {
   calculateQuoteCostDetails,
   formatCurrency,
   summarizeQuoteTotals,
+  toCsvCell,
 } from '../utils/quotes';
 
 export default function ProjectExport() {
@@ -44,7 +45,7 @@ export default function ProjectExport() {
 
   const formatModuleBreakdown = (quote) => {
     if (!quote.moduleBreakdown?.length) {
-      return 'N/A';
+      return 'N/A (manual pricing)';
     }
 
     return quote.moduleBreakdown
@@ -115,12 +116,20 @@ export default function ProjectExport() {
         selectedModules.join(' | '),
         formatModuleBreakdown(row),
       ]
-        .map((value) => `"${value}"`)
+        .map((value) => toCsvCell(value))
         .join(',');
     };
 
     const rows = quotePortfolio.rows.map(rowToCsv);
-    rows.push(`"Totals","","","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}","",""`);
+    rows.push([
+      'Totals', '', '', '', '', '', '', '', '',
+      quotePortfolio.totals.inHouse,
+      quotePortfolio.totals.buyout,
+      quotePortfolio.totals.services,
+      quotePortfolio.totals.total,
+      '',
+      '',
+    ].map((value) => toCsvCell(value)).join(','));
 
     const csvContent = `${headers.join(',')}\n${rows.join('\n')}\n`;
 

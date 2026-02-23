@@ -12,6 +12,7 @@ import {
   normalizeQuote,
   sortQuotes,
   summarizeQuoteTotals,
+  toCsvCell,
   validateQuoteFields,
 } from '../src/utils/quotes.js';
 
@@ -151,4 +152,10 @@ test('normalizeQuote guards missing fields and enforces known modes/status', () 
   assert.equal(normalized.status, 'working');
   assert.equal(normalized.pricingMode, 'manual');
   assert.equal(typeof normalized.modules, 'object');
+});
+
+
+test('toCsvCell escapes embedded double quotes safely', () => {
+  assert.equal(toCsvCell('Robot "Alpha"'), '"Robot ""Alpha"""');
+  assert.equal(toCsvCell(125), '"125"');
 });
