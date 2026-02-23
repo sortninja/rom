@@ -38,6 +38,27 @@ function unwrapPersistedPayload(parsedValue) {
   return parsedValue;
 }
 
+
+function readPersistedPayload(parsedValue, options) {
+  if (isObject(parsedValue) && isObject(parsedValue.state)) {
+    const hasVersion = Object.hasOwn(parsedValue, 'version');
+    const persistedVersion = Number(parsedValue.version);
+
+    if (hasVersion && persistedVersion !== STORAGE_VERSION) {
+      if (typeof options.migrateState === 'function') {
+        return options.migrateState(parsedValue.state, {
+          fromVersion: persistedVersion,
+          toVersion: STORAGE_VERSION,
+        });
+      }
+
+      return null;
+    }
+  }
+
+  return unwrapPersistedPayload(parsedValue);
+}
+
 export function hydrateProjectState(defaultState, persistedState) {
   if (!isObject(persistedState)) {
     return defaultState;
@@ -46,7 +67,7 @@ export function hydrateProjectState(defaultState, persistedState) {
   return deepMerge(defaultState, persistedState);
 }
 
-export function loadPersistedProjectState(defaultState) {
+export function loadPersistedProjectState(defaultState, options = {}) {
   if (typeof window === 'undefined' || !window.localStorage) {
     return defaultState;
   }
@@ -58,14 +79,83 @@ export function loadPersistedProjectState(defaultState) {
     }
 
     const parsedValue = JSON.parse(rawValue);
-    const payload = unwrapPersistedPayload(parsedValue);
-    return hydrateProjectState(defaultState, payload);
+    const payload = readPersistedPayload(parsedValue, options);
+    if (!payload) {
+      return defaultState;
+    }
+
+    const hydratedState = hydrateProjectState(defaultState, payload);
+
+    if (typeof options.normalizeState === 'function') {
+      return options.normalizeState(hydratedState);
+    }
+
+    return hydratedState;
   } catch {
     return defaultState;
   }
 }
 
-export function persistProjectState(state) {
+
+
+export function normalizePersistedRequirementsDocument(requirementsDocument) {
+  if (!requirementsDocument || typeof requirementsDocument !== 'object') {
+    return null;
+  }
+
+  if (typeof requirementsDocument.name !== 'string') {
+    return null;
+  }
+
+  const normalized = {
+    name: requirementsDocument.name,
+    type: typeof requirementsDocument.type === 'string' ? requirementsDocument.type : '',
+    size: Number(requirementsDocument.size || 0),
+    lastModified: Number(requirementsDocument.lastModified || 0),
+  };
+
+  if (typeof requirementsDocument.textPreview === 'string') {
+    normalized.textPreview = requirementsDocument.textPreview;
+  }
+
+  if (typeof requirementsDocument.persistedAs === 'string') {
+    normalized.persistedAs = requirementsDocument.persistedAs;
+  }
+
+  return normalized;
+}
+
+function toSerializableRequirementsDocument(requirementsDocument) {
+  if (!requirementsDocument || typeof requirementsDocument !== 'object') {
+    return requirementsDocument ?? null;
+  }
+
+  const looksLikeFile = typeof requirementsDocument.name === 'string'
+    && typeof requirementsDocument.size === 'number'
+    && typeof requirementsDocument.type === 'string';
+
+  if (!looksLikeFile) {
+    return normalizePersistedRequirementsDocument(requirementsDocument);
+  }
+
+  return {
+    ...normalizePersistedRequirementsDocument(requirementsDocument),
+    persistedAs: 'file-metadata',
+  };
+}
+
+export function preparePersistedProjectState(state) {
+  if (!state || typeof state !== 'object') {
+    return state;
+  }
+
+  return {
+    ...state,
+    requirementsDocument: toSerializableRequirementsDocument(state.requirementsDocument),
+  };
+}
+
+export function persistProjectState(state, options = {}) {
   if (typeof window === 'undefined' || !window.localStorage) {
     return;
   }
@@ -74,7 +164,7 @@ export function persistProjectState(state) {
     const envelope = {
       version: STORAGE_VERSION,
       savedAt: new Date().toISOString(),
-      state,
+      state: typeof options.prepareState === 'function' ? options.prepareState(state) : state,
     };
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
