@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState } from '../utils/persistence';
-import { SAMPLE_QUOTES } from '../utils/quotes';
+import {
+  clearPersistedProjectState,
+  loadPersistedProjectState,
+  normalizePersistedRequirementsDocument,
+  persistProjectState,
+  preparePersistedProjectState,
+} from '../utils/persistence';
+import { normalizeQuote, SAMPLE_QUOTES } from '../utils/quotes';
 
 const ProjectContext = createContext();
 
@@ -74,6 +80,22 @@ const initialState = {
 
   projectQuotes: SAMPLE_QUOTES,
 };
+
+
+
+function normalizeLoadedProjectState(state) {
+  const normalizedQuotes = Array.isArray(state.projectQuotes)
+    ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object').map((quote) => normalizeQuote(quote))
+    : [];
+
+  return {
+    ...state,
+    assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
+    requirements: Array.isArray(state.requirements) ? state.requirements : [],
+    requirementsDocument: normalizePersistedRequirementsDocument(state.requirementsDocument),
+    projectQuotes: normalizedQuotes,
+  };
+}
 
 function projectReducer(state, action) {
   switch (action.type) {
@@ -232,11 +254,15 @@ function projectReducer(state, action) {
 }
 
 export function ProjectProvider({ children }) {
-  const [state, dispatch] = useReducer(projectReducer, initialState, loadPersistedProjectState);
+  const [state, dispatch] = useReducer(
+    projectReducer,
+    initialState,
+    (defaultState) => loadPersistedProjectState(defaultState, { normalizeState: normalizeLoadedProjectState })
+  );
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      persistProjectState(state);
+      persistProjectState(state, { prepareState: preparePersistedProjectState });
     }, 150);
 
     return () => window.clearTimeout(timeoutId);
