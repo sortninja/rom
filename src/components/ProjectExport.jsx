@@ -1,321 +1,290 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { calculateConveyanceHardwareCost, calculateRoboticsHardwareCost } from '../utils/costs';
 import { AlertTriangle, Download, FileText, RotateCcw } from 'lucide-react';
+import {
+  addQuoteTotal,
+  calculateQuoteCostDetails,
+  formatCurrency,
+  summarizeQuoteTotals,
+  toCsvCell,
+} from '../utils/quotes';
 
 export default function ProjectExport() {
-    const { state, resetProjectState } = useProject();
-    const { projectInfo, modules, moduleData, assumptions, requirements, requirementsDocument } = state;
+  const { state, resetProjectState } = useProject();
 
-    const generateProjectSummary = () => {
-        const selectedModules = MODULE_DEFINITIONS.filter(m => modules[m.id]);
+  const quotePortfolio = useMemo(() => {
+    const rows = state.projectQuotes.map((quote) => {
+      const enrichedQuote = addQuoteTotal(quote, state.moduleData);
+      const details = calculateQuoteCostDetails(quote, state.moduleData);
 
-        const summary = {
-            projectInfo,
-            selectedModules: selectedModules.map(module => ({
-                id: module.id,
-                name: module.name,
-                sourcing: modules[module.id]?.sourcing,
-                data: moduleData[module.id] || {}
-            })),
-            totalModules: selectedModules.length,
-            assumptions,
-            requirements,
-            requirementsDocument,
-            sourcingBreakdown: {
-                buyout: selectedModules.filter(m => modules[m.id]?.sourcing === 'Buyout').length,
-                inHouse: selectedModules.filter(m => modules[m.id]?.sourcing === 'In-House').length,
-                hybrid: selectedModules.filter(m => modules[m.id]?.sourcing === 'Hybrid').length
-            }
-        };
+      return {
+        ...enrichedQuote,
+        moduleBreakdown: details.moduleBreakdown,
+      };
+    });
 
-        return summary;
+    return {
+      rows,
+      totals: summarizeQuoteTotals(rows),
+    };
+  }, [state.moduleData, state.projectQuotes]);
+
+
+
+  const moduleNameById = useMemo(
+    () => Object.fromEntries(MODULE_DEFINITIONS.map((moduleDefinition) => [moduleDefinition.id, moduleDefinition.name])),
+    []
+  );
+
+  const getSelectedModuleNames = (quote) => {
+    return Object.entries(quote.modules || {})
+      .filter(([, module]) => module?.selected)
+      .map(([moduleId]) => moduleNameById[moduleId] || moduleId);
+  };
+
+  const formatModuleBreakdown = (quote) => {
+    if (!quote.moduleBreakdown?.length) {
+      return 'N/A (manual pricing)';
+    }
+
+    return quote.moduleBreakdown
+      .map((moduleRow) => {
+        const moduleName = moduleNameById[moduleRow.moduleId] || moduleRow.moduleId;
+        return `${moduleName} (IH: ${formatCurrency(moduleRow.inHouse)}, BO: ${formatCurrency(moduleRow.buyout)}, SV: ${formatCurrency(moduleRow.services)}, Total: ${formatCurrency(moduleRow.total)})`;
+      })
+      .join(' | ');
+  };
+
+  const exportToJSON = () => {
+    const data = {
+      projectInfo: state.projectInfo,
+      assumptions: state.assumptions,
+      requirements: state.requirements,
+      requirementsDocument: state.requirementsDocument,
+      quotePortfolioRows: quotePortfolio.rows,
+      quotePortfolioTotals: quotePortfolio.totals,
     };
 
-    const exportToJSON = () => {
-        const summary = generateProjectSummary();
-        const dataStr = JSON.stringify(summary, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
 
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${projectInfo.name.replace(/\s+/g, '_')}_ROM_Export_${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${state.projectInfo.name.replace(/\s+/g, '_')}_ROM_Export_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
 
-        URL.revokeObjectURL(url);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      'Project #',
+      'Project name',
+      'Sales',
+      'Lead engineer',
+      'Contract award',
+      'Go live',
+      'Quote due',
+      'Status',
+      'Pricing mode',
+      'In house',
+      'Buyout',
+      'Services',
+      'Total',
+      'Selected modules',
+      'Module breakdown',
+    ];
+
+    const rowToCsv = (row) => {
+      const selectedModules = getSelectedModuleNames(row);
+      return [
+        row.projectNumber,
+        row.projectName,
+        row.sales,
+        row.leadEngineer,
+        row.contractAward,
+        row.goLive,
+        row.quoteDue,
+        row.status,
+        row.pricingMode,
+        row.inHouse,
+        row.buyout,
+        row.services,
+        row.total,
+        selectedModules.join(' | '),
+        formatModuleBreakdown(row),
+      ]
+        .map((value) => toCsvCell(value))
+        .join(',');
     };
 
-    const exportToCSV = () => {
-        const selectedModules = MODULE_DEFINITIONS.filter(m => modules[m.id]);
+    const rows = quotePortfolio.rows.map(rowToCsv);
+    rows.push([
+      'Totals', '', '', '', '', '', '', '', '',
+      quotePortfolio.totals.inHouse,
+      quotePortfolio.totals.buyout,
+      quotePortfolio.totals.services,
+      quotePortfolio.totals.total,
+      '',
+      '',
+    ].map((value) => toCsvCell(value)).join(','));
 
-        let csvContent = 'Module Name,Sourcing Strategy,Status,Notes\n';
+    const csvContent = `${headers.join(',')}\n${rows.join('\n')}\n`;
 
-        selectedModules.forEach(module => {
-            const sourcing = modules[module.id]?.sourcing || 'Not specified';
-            const hasData = moduleData[module.id] && Object.keys(moduleData[module.id]).length > 0;
-            const status = hasData ? 'Configured' : 'Pending Configuration';
-            const notes = module.required ? 'Required module' : 'Optional module';
+    const dataBlob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${state.projectInfo.name.replace(/\s+/g, '_')}_ROM_Quote_Portfolio_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
 
-            csvContent += `"${module.name}","${sourcing}","${status}","${notes}"\n`;
-        });
+    URL.revokeObjectURL(url);
+  };
 
-        const dataBlob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${projectInfo.name.replace(/\s+/g, '_')}_ROM_Summary_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
+  const handleResetLocalData = () => {
+    const confirmed = window.confirm('Reset all locally saved ROM project data? This cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
 
-        URL.revokeObjectURL(url);
-    };
+    resetProjectState();
+  };
 
-
-    const handleResetLocalData = () => {
-        const confirmed = window.confirm('Reset all locally saved ROM project data? This cannot be undone.');
-        if (!confirmed) {
-            return;
-        }
-
-        resetProjectState();
-    };
-
-    const generateCostEstimate = () => {
-        let totalCost = 0;
-        const costBreakdown = {};
-
-        // Robotic Systems Cost
-        if (moduleData.robotic_systems?.robots) {
-            const robotCost = calculateRoboticsHardwareCost(moduleData.robotic_systems.robots);
-            totalCost += robotCost;
-            costBreakdown.robotic_systems = robotCost;
-        }
-
-        // Conveyance Systems Cost
-        if (moduleData.conveyance?.segments) {
-            const conveyanceCost = calculateConveyanceHardwareCost(moduleData.conveyance.segments);
-            totalCost += conveyanceCost;
-            costBreakdown.conveyance = conveyanceCost;
-        }
-
-        // Storage Infrastructure Cost
-        if (moduleData.storage?.zones) {
-            const storageCost = moduleData.storage.zones.reduce((sum, zone) => {
-                const costPerPos = zone.type === 'Selective Racking' ? 60 : zone.type === 'Push Back' ? 120 : 40;
-                return sum + (zone.positions * costPerPos);
-            }, 0);
-            totalCost += storageCost;
-            costBreakdown.storage = storageCost;
-        }
-
-        // Controls & Electrical Cost
-        if (moduleData.controls?.panels) {
-            const controlsCost = moduleData.controls.panels.reduce((sum, panel) =>
-                sum + (panel.quantity * panel.unitCost), 0);
-            totalCost += controlsCost;
-            costBreakdown.controls = controlsCost;
-        }
-
-        // Software Systems Cost
-        if (moduleData.software?.applications) {
-            const softwareCost = moduleData.software.applications.reduce((sum, application) =>
-                sum + application.annualCost, 0);
-            totalCost += softwareCost;
-            costBreakdown.software = softwareCost;
-        }
-
-        // Implementation Services Cost
-        if (moduleData.implementation?.services) {
-            const implementationCost = moduleData.implementation.services.reduce((sum, service) =>
-                sum + (service.hours * service.hourlyRate), 0);
-            totalCost += implementationCost;
-            costBreakdown.implementation = implementationCost;
-        }
-
-        return { total: totalCost, breakdown: costBreakdown };
-    };
-
-    const summary = generateProjectSummary();
-    const costEstimate = generateCostEstimate();
-
-    return (
-        <div className="card">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-h2">Project Export & Summary</h2>
-                <div className="flex gap-md">
-                    <button
-                        onClick={exportToJSON}
-                        className="flex items-center gap-xs"
-                        style={{
-                            background: 'var(--color-primary)',
-                            color: 'white',
-                            border: 'none',
-                            padding: 'var(--space-sm) var(--space-md)',
-                            borderRadius: 'var(--radius-md)',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <Download size={16} />
-                        Export JSON
-                    </button>
-                    <button
-                        onClick={exportToCSV}
-                        className="flex items-center gap-xs"
-                        style={{
-                            background: 'var(--color-success)',
-                            color: 'white',
-                            border: 'none',
-                            padding: 'var(--space-sm) var(--space-md)',
-                            borderRadius: 'var(--radius-md)',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <FileText size={16} />
-                        Export CSV
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid gap-lg" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                <div>
-                    <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Project Overview</h3>
-                    <div className="card" style={{ background: 'var(--color-bg-body)' }}>
-                        <div style={{ marginBottom: 'var(--space-md)' }}>
-                            <strong>Project Name:</strong> {projectInfo.name}
-                        </div>
-                        <div style={{ marginBottom: 'var(--space-md)' }}>
-                            <strong>Project Lead:</strong> {projectInfo.lead || 'Not assigned'}
-                        </div>
-                        <div style={{ marginBottom: 'var(--space-md)' }}>
-                            <strong>Status:</strong> {projectInfo.status}
-                        </div>
-                        <div>
-                            <strong>Total Modules:</strong> {summary.totalModules}
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Sourcing Strategy</h3>
-                    <div className="card" style={{ background: 'var(--color-bg-body)' }}>
-                        <div style={{ marginBottom: 'var(--space-sm)' }}>
-                            <strong>Buyout:</strong> {summary.sourcingBreakdown.buyout} modules
-                        </div>
-                        <div style={{ marginBottom: 'var(--space-sm)' }}>
-                            <strong>In-House:</strong> {summary.sourcingBreakdown.inHouse} modules
-                        </div>
-                        <div>
-                            <strong>Hybrid:</strong> {summary.sourcingBreakdown.hybrid} modules
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-            <div className="mt-lg">
-                <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Data Management</h3>
-                <div className="card" style={{ background: 'var(--color-bg-body)' }}>
-                    <div className="flex justify-between items-center" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
-                        <div className="flex items-center gap-sm">
-                            <AlertTriangle size={16} color="var(--color-warning)" />
-                            <span className="text-small">Reset clears locally persisted data and restores ROM defaults.</span>
-                        </div>
-                        <button
-                            onClick={handleResetLocalData}
-                            className="flex items-center gap-xs"
-                            style={{
-                                border: '1px solid var(--color-danger)',
-                                color: 'var(--color-danger)',
-                                background: '#fff',
-                                borderRadius: 'var(--radius-sm)',
-                                padding: 'var(--space-sm) var(--space-md)',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <RotateCcw size={14} />
-                            Reset Local Data
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {costEstimate.total > 0 && (
-                <div className="mt-lg">
-                    <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Cost Estimate</h3>
-                    <div className="card" style={{ background: 'var(--color-bg-body)' }}>
-                        <div className="flex justify-between items-center mb-md">
-                            <strong>Total Estimated Cost:</strong>
-                            <span className="text-h2" style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }}>
-                                ${costEstimate.total.toLocaleString()}
-                            </span>
-                        </div>
-
-                        {Object.entries(costEstimate.breakdown).map(([module, cost]) => (
-                            <div key={module} className="flex justify-between items-center" style={{ marginBottom: 'var(--space-sm)' }}>
-                                <span>{module.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span>
-                                <span>${cost.toLocaleString()}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-
-
-            <div className="mt-lg grid gap-lg" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                <div>
-                    <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Assumptions</h3>
-                    <div className="card" style={{ background: 'var(--color-bg-body)' }}>
-                        <div style={{ marginBottom: 'var(--space-sm)' }}><strong>Total:</strong> {assumptions.length}</div>
-                        {assumptions.length === 0 ? (
-                            <span className="text-small">No assumptions captured.</span>
-                        ) : (
-                            assumptions.slice(0, 3).map((assumption) => (
-                                <div key={assumption.id} className="text-small" style={{ marginBottom: 'var(--space-xs)' }}>
-                                    • {assumption.statement}
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                <div>
-                    <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Requirements</h3>
-                    <div className="card" style={{ background: 'var(--color-bg-body)' }}>
-                        <div style={{ marginBottom: 'var(--space-sm)' }}><strong>Total:</strong> {requirements.length}</div>
-                        <div className="text-small" style={{ marginBottom: 'var(--space-sm)' }}>
-                            <strong>Document:</strong> {requirementsDocument?.name || 'None uploaded'}
-                        </div>
-                        {requirements.length === 0 ? (
-                            <span className="text-small">No requirements captured.</span>
-                        ) : (
-                            requirements.slice(0, 3).map((requirement) => (
-                                <div key={requirement.id} className="text-small" style={{ marginBottom: 'var(--space-xs)' }}>
-                                    • {requirement.text}
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div className="mt-lg">
-                <h3 className="text-h2" style={{ fontSize: '1.25rem', marginBottom: 'var(--space-md)' }}>Selected Modules</h3>
-                <div className="grid gap-md" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-                    {summary.selectedModules.map(module => (
-                        <div key={module.id} className="card" style={{ background: 'var(--color-bg-body)' }}>
-                            <h4 style={{ margin: '0 0 var(--space-sm) 0' }}>{module.name}</h4>
-                            <div className="text-small" style={{ marginBottom: 'var(--space-xs)' }}>
-                                <strong>Sourcing:</strong> {module.sourcing}
-                            </div>
-                            <div className="text-small">
-                                <strong>Status:</strong> {Object.keys(module.data).length > 0 ? 'Configured' : 'Pending Configuration'}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+  return (
+    <div className="card">
+      <div className="flex justify-between items-center mb-6" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+        <h2 className="text-h2">Project Export & Quote Portfolio</h2>
+        <div className="flex gap-md" style={{ flexWrap: 'wrap' }}>
+          <button onClick={exportToJSON} className="flex items-center gap-sm" style={primaryButtonStyle}>
+            <FileText size={16} />
+            Export JSON
+          </button>
+          <button onClick={exportToCSV} className="flex items-center gap-sm" style={secondaryButtonStyle}>
+            <Download size={16} />
+            Export CSV
+          </button>
         </div>
-    );
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1140 }}>
+          <thead>
+            <tr>
+              {['Project #', 'Project name', 'Sales', 'Lead engineer', 'Contract award', 'Go live', 'Quote due', 'Status', 'Pricing mode'].map((heading) => (
+                <th key={heading} style={headerCell}>{heading}</th>
+              ))}
+              {['In house', 'Buyout', 'Services', 'Total', 'Modules', 'Module breakdown'].map((heading) => (
+                <th key={heading} style={headerCellRight}>{heading}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {quotePortfolio.rows.map((quote) => (
+              <tr key={quote.id}>
+                <td style={bodyCell}>{quote.projectNumber}</td>
+                <td style={bodyCell}>{quote.projectName}</td>
+                <td style={bodyCell}>{quote.sales}</td>
+                <td style={bodyCell}>{quote.leadEngineer}</td>
+                <td style={bodyCell}>{quote.contractAward}</td>
+                <td style={bodyCell}>{quote.goLive}</td>
+                <td style={bodyCell}>{quote.quoteDue}</td>
+                <td style={bodyCell}>{quote.status}</td>
+                <td style={bodyCell}>{quote.pricingMode}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.inHouse)}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
+                <td style={bodyCellRight}>{formatCurrency(quote.total)}</td>
+                <td style={bodyCell}>{getSelectedModuleNames(quote).length ? getSelectedModuleNames(quote).join(', ') : 'None'}</td>
+                <td style={bodyCell}>{formatModuleBreakdown(quote)}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={totalsCell} colSpan={9}>Totals</td>
+              <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.inHouse)}</td>
+              <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.buyout)}</td>
+              <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.services)}</td>
+              <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.total)}</td>
+              <td style={totalsCell}>-</td>
+              <td style={totalsCell}>-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-lg">
+        <div className="card" style={{ background: 'var(--color-bg-body)' }}>
+          <div className="flex justify-between items-center" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+            <div className="flex items-center gap-sm">
+              <AlertTriangle size={16} color="var(--color-warning)" />
+              <span className="text-small">Reset clears locally persisted data and restores ROM defaults.</span>
+            </div>
+            <button onClick={handleResetLocalData} className="flex items-center gap-xs" style={dangerButtonStyle}>
+              <RotateCcw size={14} />
+              Reset Local Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
+
+const primaryButtonStyle = {
+  background: 'var(--color-primary)',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 'var(--radius-sm)',
+  padding: 'var(--space-sm) var(--space-md)',
+  cursor: 'pointer',
+};
+
+const secondaryButtonStyle = {
+  border: '1px solid var(--color-primary)',
+  color: 'var(--color-primary)',
+  background: '#fff',
+  borderRadius: 'var(--radius-sm)',
+  padding: 'var(--space-sm) var(--space-md)',
+  cursor: 'pointer',
+};
+
+const dangerButtonStyle = {
+  border: '1px solid var(--color-danger)',
+  color: 'var(--color-danger)',
+  background: '#fff',
+  borderRadius: 'var(--radius-sm)',
+  padding: 'var(--space-sm) var(--space-md)',
+  cursor: 'pointer',
+};
+
+const headerCell = {
+  textAlign: 'left',
+  borderBottom: '1px solid var(--color-border)',
+  padding: 'var(--space-sm)',
+};
+
+const headerCellRight = {
+  ...headerCell,
+  textAlign: 'right',
+};
+
+const bodyCell = {
+  borderBottom: '1px solid var(--color-border)',
+  padding: 'var(--space-sm)',
+};
+
+const bodyCellRight = {
+  ...bodyCell,
+  textAlign: 'right',
+};
+
+const totalsCell = {
+  ...bodyCell,
+  fontWeight: 700,
+};
+
+const totalsCellRight = {
+  ...bodyCellRight,
+  fontWeight: 700,
+};
