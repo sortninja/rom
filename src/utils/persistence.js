@@ -79,11 +79,7 @@ export function loadPersistedProjectState(defaultState, options = {}) {
     }
 
     const parsedValue = JSON.parse(rawValue);
-    const payload = readPersistedPayload(parsedValue, options);
-    if (!payload) {
-      return defaultState;
-    }
-
+    const payload = unwrapPersistedPayload(parsedValue);
     const hydratedState = hydrateProjectState(defaultState, payload);
 
     if (typeof options.normalizeState === 'function') {
