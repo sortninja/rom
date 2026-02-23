@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState, preparePersistedProjectState } from '../utils/persistence';
+import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState } from '../utils/persistence';
 import { normalizeQuote, SAMPLE_QUOTES } from '../utils/quotes';
 
 const ProjectContext = createContext();
