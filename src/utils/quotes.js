@@ -276,3 +276,86 @@ export function isProjectNumberInUse(quotes = [], projectNumber = '', excludeQuo
     return String(quote.projectNumber || '').trim().toLowerCase() === normalized;
   });
 }
+
+
+export function isValidDateString(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  if (!match) {
+    return false;
+  }
+
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  return (
+    date.getFullYear() === year
+    && date.getMonth() === month - 1
+    && date.getDate() === day
+  );
+}
+
+function parseDateOrNull(value) {
+  if (!value || !isValidDateString(value)) {
+    return null;
+  }
+
+  const [month, day, year] = value.split('/').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function validateQuoteFields(quote) {
+  const errors = [];
+
+  if (!String(quote?.projectNumber || '').trim()) {
+    errors.push('Project # is required.');
+  }
+
+  if (!String(quote?.projectName || '').trim()) {
+    errors.push('Project name is required.');
+  }
+
+  if (!String(quote?.sales || '').trim()) {
+    errors.push('Sales is required.');
+  }
+
+  if (!String(quote?.leadEngineer || '').trim()) {
+    errors.push('Lead engineer is required.');
+  }
+
+  const contractAward = String(quote?.contractAward || '').trim();
+  const goLive = String(quote?.goLive || '').trim();
+  const quoteDue = String(quote?.quoteDue || '').trim();
+
+  if (!isValidDateString(contractAward)) {
+    errors.push('Contract award must use MM/DD/YYYY format.');
+  }
+
+  if (!isValidDateString(goLive)) {
+    errors.push('Go live must use MM/DD/YYYY format.');
+  }
+
+  if (!isValidDateString(quoteDue)) {
+    errors.push('Quote due must use MM/DD/YYYY format.');
+  }
+
+  const contractDate = parseDateOrNull(contractAward);
+  const goLiveDate = parseDateOrNull(goLive);
+  const quoteDueDate = parseDateOrNull(quoteDue);
+
+  if (contractDate && quoteDueDate && quoteDueDate > contractDate) {
+    errors.push('Quote due must be on or before contract award.');
+  }
+
+  if (contractDate && goLiveDate && contractDate > goLiveDate) {
+    errors.push('Contract award must be on or before go live.');
+  }
+
+  return errors;
+}

@@ -8,7 +8,9 @@ import {
   createEmptyQuote,
   formatCurrency,
   isProjectNumberInUse,
+  isValidDateString,
   summarizeQuoteTotals,
+  validateQuoteFields,
 } from '../src/utils/quotes.js';
 
 test('addQuoteTotal calculates total from in-house, buyout, and services', () => {
@@ -101,4 +103,27 @@ test('isProjectNumberInUse detects duplicates and supports exclusion', () => {
   assert.equal(isProjectNumberInUse(quotes, ' 1001 '), true);
   assert.equal(isProjectNumberInUse(quotes, '1001', 'a'), false);
   assert.equal(isProjectNumberInUse(quotes, '9999'), false);
+});
+
+
+test('isValidDateString validates MM/DD/YYYY and rejects invalid dates', () => {
+  assert.equal(isValidDateString(''), true);
+  assert.equal(isValidDateString('02/29/2024'), true);
+  assert.equal(isValidDateString('02/30/2024'), false);
+  assert.equal(isValidDateString('2024-02-29'), false);
+});
+
+test('validateQuoteFields enforces required fields and date ordering', () => {
+  const errors = validateQuoteFields({
+    projectNumber: '2001',
+    projectName: 'Alpha',
+    sales: 'Dana',
+    leadEngineer: 'Chris',
+    quoteDue: '05/10/2026',
+    contractAward: '05/01/2026',
+    goLive: '04/01/2026',
+  });
+
+  assert.equal(errors.includes('Quote due must be on or before contract award.'), true);
+  assert.equal(errors.includes('Contract award must be on or before go live.'), true);
 });

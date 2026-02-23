@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, summarizeQuoteTotals } from '../utils/quotes';
+import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, isProjectNumberInUse, summarizeQuoteTotals, validateQuoteFields } from '../utils/quotes';
 
 const STATUS_OPTIONS = ['working', 'complete'];
 const PRICING_MODE_OPTIONS = ['manual', 'auto'];
@@ -51,6 +51,12 @@ export default function Dashboard() {
   const handleCreateQuote = (event) => {
     event.preventDefault();
 
+    const quoteFieldErrors = validateQuoteFields(newQuote);
+    if (quoteFieldErrors.length > 0) {
+      setCreateError(quoteFieldErrors[0]);
+      return;
+    }
+
     if (isProjectNumberInUse(state.projectQuotes, newQuote.projectNumber)) {
       setCreateError('Project # already exists. Please use a unique project number.');
       return;
@@ -85,6 +91,12 @@ export default function Dashboard() {
   const saveEditedQuote = (event) => {
     event.preventDefault();
     if (!editQuote?.id) return;
+
+    const quoteFieldErrors = validateQuoteFields(editQuote);
+    if (quoteFieldErrors.length > 0) {
+      setEditError(quoteFieldErrors[0]);
+      return;
+    }
 
     if (isProjectNumberInUse(state.projectQuotes, editQuote.projectNumber, editQuote.id)) {
       setEditError('Project # already exists. Please use a unique project number.');
@@ -158,9 +170,9 @@ export default function Dashboard() {
             <label><span className="text-small">Project name</span><input name="projectName" value={newQuote.projectName} onChange={updateNewQuoteField} style={inputStyle} required /></label>
             <label><span className="text-small">Sales</span><input name="sales" value={newQuote.sales} onChange={updateNewQuoteField} style={inputStyle} required /></label>
             <label><span className="text-small">Lead engineer</span><input name="leadEngineer" value={newQuote.leadEngineer} onChange={updateNewQuoteField} style={inputStyle} required /></label>
-            <label><span className="text-small">Contract award</span><input name="contractAward" value={newQuote.contractAward} onChange={updateNewQuoteField} style={inputStyle} placeholder="mm/dd//yyyy" /></label>
-            <label><span className="text-small">Go live</span><input name="goLive" value={newQuote.goLive} onChange={updateNewQuoteField} style={inputStyle} placeholder="mm/dd//yyyy" /></label>
-            <label><span className="text-small">Quote due</span><input name="quoteDue" value={newQuote.quoteDue} onChange={updateNewQuoteField} style={inputStyle} placeholder="mm/dd//yyyy" /></label>
+            <label><span className="text-small">Contract award</span><input name="contractAward" value={newQuote.contractAward} onChange={updateNewQuoteField} style={inputStyle} placeholder="MM/DD/YYYY" /></label>
+            <label><span className="text-small">Go live</span><input name="goLive" value={newQuote.goLive} onChange={updateNewQuoteField} style={inputStyle} placeholder="MM/DD/YYYY" /></label>
+            <label><span className="text-small">Quote due</span><input name="quoteDue" value={newQuote.quoteDue} onChange={updateNewQuoteField} style={inputStyle} placeholder="MM/DD/YYYY" /></label>
             <label>
               <span className="text-small">Status</span>
               <select name="status" value={newQuote.status} onChange={updateNewQuoteField} style={inputStyle}>
