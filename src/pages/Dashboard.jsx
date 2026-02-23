@@ -104,6 +104,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {!showNewQuoteForm && (
       <div className="card" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
           <thead>
@@ -158,11 +159,12 @@ export default function Dashboard() {
           </tbody>
         </table>
       </div>
+      )}
 
-      {selectedQuote && (
+      {showNewQuoteForm && selectedQuote && (
         <div className="card">
           <h2 className="text-h2" style={{ marginTop: 0 }}>Quote Modules for Job #{selectedQuote.projectNumber}</h2>
-          <p className="text-small text-muted" style={{ marginTop: 0 }}>Click job numbers above to switch quote context.</p>
+          <p className="text-small text-muted" style={{ marginTop: 0 }}>Module assignment for the currently selected quote.</p>
           <div className="grid gap-md">
             {MODULE_DEFINITIONS.map((moduleDefinition) => {
               const quoteModule = selectedQuote.modules?.[moduleDefinition.id];
