@@ -6,6 +6,8 @@ import {
   loadPersistedProjectState,
   persistProjectState,
   clearPersistedProjectState,
+  normalizePersistedRequirementsDocument,
+  preparePersistedProjectState,
   STORAGE_KEY,
   STORAGE_VERSION,
 } from '../src/utils/persistence.js';
@@ -141,4 +143,162 @@ test('clearPersistedProjectState removes the storage key', () => {
 
   assert.equal(removedKey, STORAGE_KEY);
   globalThis.window = originalWindow;
+});
+
+
+test('loadPersistedProjectState applies normalizeState callback when provided', () => {
+  const originalWindow = globalThis.window;
+  const fakeStorage = {
+    getItem: () => JSON.stringify({
+      state: {
+        assumptions: 'not-an-array',
+        requirements: null,
+        projectQuotes: [{ id: 'q1', projectNumber: 1001 }, null, 'bad'],
+      },
+    }),
+    setItem: () => {},
+  };
+
+  globalThis.window = { localStorage: fakeStorage };
+  const loaded = loadPersistedProjectState(defaultState, {
+    normalizeState: (state) => ({
+      ...state,
+      assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
+      requirements: Array.isArray(state.requirements) ? state.requirements : [],
+      projectQuotes: Array.isArray(state.projectQuotes)
+        ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object')
+        : [],
+    }),
+  });
+
+  assert.deepEqual(loaded.assumptions, []);
+  assert.deepEqual(loaded.requirements, []);
+  assert.equal(loaded.projectQuotes.length, 1);
+  assert.equal(loaded.projectQuotes[0].projectNumber, 1001);
+
+  globalThis.window = originalWindow;
+});
+
+
+test('loadPersistedProjectState returns defaults for unsupported envelope version without migration', () => {
+  const originalWindow = globalThis.window;
+  const fakeStorage = {
+    getItem: () => JSON.stringify({ version: 99, state: { projectInfo: { name: 'Old Schema' } } }),
+    setItem: () => {},
+  };
+
+  globalThis.window = { localStorage: fakeStorage };
+  const loaded = loadPersistedProjectState(defaultState);
+
+  assert.deepEqual(loaded, defaultState);
+  globalThis.window = originalWindow;
+});
+
+
+test('loadPersistedProjectState applies migrateState for older envelope version', () => {
+  const originalWindow = globalThis.window;
+  const fakeStorage = {
+    getItem: () => JSON.stringify({
+      version: 0,
+      state: { projectInfo: { name: 'Migrated Project' }, legacyQuotes: [{ id: 'q1' }] },
+    }),
+    setItem: () => {},
+  };
+
+  globalThis.window = { localStorage: fakeStorage };
+  let migrationMeta;
+  const loaded = loadPersistedProjectState(defaultState, {
+    migrateState: (state, meta) => {
+      migrationMeta = meta;
+      return {
+        ...state,
+        projectQuotes: state.legacyQuotes || [],
+      };
+    },
+  });
+
+  assert.equal(loaded.projectInfo.name, 'Migrated Project');
+  assert.equal(Array.isArray(loaded.projectQuotes), true);
+  assert.equal(loaded.projectQuotes.length, 1);
+  assert.deepEqual(migrationMeta, { fromVersion: 0, toVersion: STORAGE_VERSION });
+
+  globalThis.window = originalWindow;
+});
+
+
+test('preparePersistedProjectState converts file-like requirementsDocument into metadata', () => {
+  const prepared = preparePersistedProjectState({
+    ...defaultState,
+    requirementsDocument: {
+      name: 'requirements.pdf',
+      size: 1024,
+      type: 'application/pdf',
+      lastModified: 1700000000,
+      extra: 'ignore-me',
+    },
+  });
+
+  assert.deepEqual(prepared.requirementsDocument, {
+    name: 'requirements.pdf',
+    size: 1024,
+    type: 'application/pdf',
+    lastModified: 1700000000,
+    persistedAs: 'file-metadata',
+  });
+});
+
+
+test('persistProjectState applies prepareState callback when provided', () => {
+  const originalWindow = globalThis.window;
+  let storedValue = '';
+
+  const fakeStorage = {
+    getItem: () => null,
+    setItem: (key, value) => {
+      if (key === STORAGE_KEY) {
+        storedValue = value;
+      }
+    },
+  };
+
+  globalThis.window = { localStorage: fakeStorage };
+  persistProjectState(
+    {
+      ...defaultState,
+      requirementsDocument: {
+        name: 'requirements.pdf',
+        size: 2048,
+        type: 'application/pdf',
+      },
+    },
+    { prepareState: preparePersistedProjectState }
+  );
+
+  const parsed = JSON.parse(storedValue);
+  assert.equal(parsed.state.requirementsDocument.persistedAs, 'file-metadata');
+  assert.equal(parsed.state.requirementsDocument.size, 2048);
+
+  globalThis.window = originalWindow;
+});
+
+
+test('normalizePersistedRequirementsDocument coerces persisted document shape safely', () => {
+  assert.equal(normalizePersistedRequirementsDocument(null), null);
+  assert.equal(normalizePersistedRequirementsDocument('bad'), null);
+
+  const normalized = normalizePersistedRequirementsDocument({
+    name: 'reqs.pdf',
+    size: '2048',
+    type: 42,
+    lastModified: '1700000123',
+    persistedAs: 'file-metadata',
+  });
+
+  assert.deepEqual(normalized, {
+    name: 'reqs.pdf',
+    size: 2048,
+    type: '',
+    lastModified: 1700000123,
+    persistedAs: 'file-metadata',
+  });
 });

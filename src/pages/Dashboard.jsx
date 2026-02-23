@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import {
   SAMPLE_QUOTES,
@@ -18,7 +19,89 @@ export default function Dashboard() {
       quotes: rows,
       totals: summarizeQuoteTotals(rows),
     };
-  }, [state]);
+
+    dispatch({ type: 'ADD_PROJECT_QUOTE', payload });
+    setCreateError('');
+    setSelectedQuoteId(payload.id);
+    setShowNewQuoteForm(false);
+    setNewQuote(createEmptyQuote());
+  };
+
+  const updateNewQuoteField = (event) => {
+    const { name, value } = event.target;
+    setCreateError('');
+    setNewQuote((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const updateEditQuoteField = (event) => {
+    const { name, value } = event.target;
+    setEditError('');
+    setEditQuote((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const saveEditedQuote = (event) => {
+    event.preventDefault();
+    if (!editQuote?.id) return;
+
+    const quoteFieldErrors = validateQuoteFields(editQuote);
+    if (quoteFieldErrors.length > 0) {
+      setEditError(quoteFieldErrors[0]);
+      return;
+    }
+
+    if (isProjectNumberInUse(projectQuotes, editQuote.projectNumber, editQuote.id)) {
+      setEditError('Project # already exists. Please use a unique project number.');
+      return;
+    }
+
+    dispatch({
+      type: 'UPDATE_PROJECT_QUOTE',
+      payload: {
+        id: editQuote.id,
+        updates: {
+          ...editQuote,
+          inHouse: Number(editQuote.inHouse) || 0,
+          buyout: Number(editQuote.buyout) || 0,
+          services: Number(editQuote.services) || 0,
+        },
+      },
+    });
+    setEditError('');
+  };
+
+  const removeQuote = (quoteId) => {
+    const confirmed = window.confirm('Delete this quote? This action cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
+    dispatch({ type: 'REMOVE_PROJECT_QUOTE', payload: quoteId });
+    if (selectedQuoteId === quoteId) {
+      const remaining = projectQuotes.filter((quote) => quote.id !== quoteId);
+      setSelectedQuoteId(remaining[0]?.id || null);
+    }
+  };
+
+  const toggleQuoteModule = (quoteId, moduleDefinition, isSelected) => {
+    dispatch({
+      type: 'TOGGLE_PROJECT_QUOTE_MODULE',
+      payload: {
+        quoteId,
+        moduleId: moduleDefinition.id,
+        isSelected,
+        defaultSourcing: moduleDefinition.defaultSourcing || moduleDefinition.sourcingOptions[0] || 'In-House',
+      },
+    });
+    setEditError('');
+  };
+
+  const setQuoteModuleSourcing = (quoteId, moduleId, sourcing) => {
+    dispatch({
+      type: 'SET_PROJECT_QUOTE_MODULE_SOURCING',
+      payload: { quoteId, moduleId, sourcing },
+    });
+    setEditError('');
+  };
 
   return (
     <div className="grid gap-md">
