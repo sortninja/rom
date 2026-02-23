@@ -57,6 +57,12 @@ export default function Dashboard() {
     [selectedQuote, state.moduleData]
   );
 
+
+  const selectedQuoteWithTotals = useMemo(
+    () => (selectedQuote ? addQuoteTotal(selectedQuote, state.moduleData) : null),
+    [selectedQuote, state.moduleData]
+  );
+
   useEffect(() => {
     setEditQuote(selectedQuote ? normalizeQuote(selectedQuote) : null);
   }, [selectedQuoteId, selectedQuote]);
@@ -343,6 +349,52 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+
+
+          {selectedQuoteWithTotals && (
+            <div className="card">
+              <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+                <h2 className="text-h2" style={{ marginTop: 0, marginBottom: 0 }}>
+                  Selected Quote Snapshot — Job #{selectedQuoteWithTotals.projectNumber}
+                </h2>
+                <span className="text-small text-muted">{selectedQuoteWithTotals.pricingMode} pricing</span>
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-md)' }}>
+                <div>
+                  <div className="text-small text-muted">Project</div>
+                  <div style={{ fontWeight: 600 }}>{selectedQuoteWithTotals.projectName || 'Untitled'}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Status</div>
+                  <div style={{ fontWeight: 600 }}>{selectedQuoteWithTotals.status}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Selected modules</div>
+                  <div style={{ fontWeight: 600 }}>{Object.values(selectedQuoteWithTotals.modules || {}).filter((module) => module?.selected).length}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">In house</div>
+                  <div style={{ fontWeight: 600 }}>{formatCurrency(selectedQuoteWithTotals.inHouse)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Buyout</div>
+                  <div style={{ fontWeight: 600 }}>{formatCurrency(selectedQuoteWithTotals.buyout)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Services</div>
+                  <div style={{ fontWeight: 600 }}>{formatCurrency(selectedQuoteWithTotals.services)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Total</div>
+                  <div style={{ fontWeight: 700 }}>{formatCurrency(selectedQuoteWithTotals.total)}</div>
+                </div>
+                <div>
+                  <div className="text-small text-muted">Quote due</div>
+                  <div style={{ fontWeight: 600 }}>{selectedQuoteWithTotals.quoteDue || '-'}</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {editQuote && (
             <div className="card">
