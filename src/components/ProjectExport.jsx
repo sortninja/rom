@@ -2,9 +2,7 @@ import React, { useMemo } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { AlertTriangle, Download, FileText, RotateCcw } from 'lucide-react';
 import {
-  SAMPLE_QUOTES,
   addQuoteTotal,
-  buildQuoteFromProjectState,
   formatCurrency,
   summarizeQuoteTotals,
 } from '../utils/quotes';
@@ -13,15 +11,13 @@ export default function ProjectExport() {
   const { state, resetProjectState } = useProject();
 
   const quotePortfolio = useMemo(() => {
-    const currentProjectQuote = addQuoteTotal(buildQuoteFromProjectState(state));
-    const rows = [...SAMPLE_QUOTES.map(addQuoteTotal), currentProjectQuote];
+    const rows = state.projectQuotes.map(addQuoteTotal);
 
     return {
-      currentProjectQuote,
       rows,
       totals: summarizeQuoteTotals(rows),
     };
-  }, [state]);
+  }, [state.projectQuotes]);
 
   const exportToJSON = () => {
     const data = {
@@ -29,7 +25,6 @@ export default function ProjectExport() {
       assumptions: state.assumptions,
       requirements: state.requirements,
       requirementsDocument: state.requirementsDocument,
-      currentProjectQuote: quotePortfolio.currentProjectQuote,
       quotePortfolioRows: quotePortfolio.rows,
       quotePortfolioTotals: quotePortfolio.totals,
     };
@@ -48,6 +43,7 @@ export default function ProjectExport() {
 
   const exportToCSV = () => {
     const headers = [
+      'Project #',
       'Project name',
       'Sales',
       'Lead engineer',
@@ -63,6 +59,7 @@ export default function ProjectExport() {
 
     const rowToCsv = (row) => (
       [
+        row.projectNumber,
         row.projectName,
         row.sales,
         row.leadEngineer,
@@ -80,7 +77,7 @@ export default function ProjectExport() {
     );
 
     const rows = quotePortfolio.rows.map(rowToCsv);
-    rows.push(`"Totals","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}"`);
+    rows.push(`"Totals","","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}"`);
 
     const csvContent = `${headers.join(',')}\n${rows.join('\n')}\n`;
 
@@ -119,23 +116,11 @@ export default function ProjectExport() {
         </div>
       </div>
 
-      <div className="card" style={{ background: 'var(--color-bg-body)', marginBottom: 'var(--space-lg)' }}>
-        <h3 className="text-h2" style={{ fontSize: '1.1rem', marginTop: 0 }}>Current Project Quote</h3>
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-md)' }}>
-          <div><strong>Project:</strong> {quotePortfolio.currentProjectQuote.projectName}</div>
-          <div><strong>Status:</strong> {quotePortfolio.currentProjectQuote.status}</div>
-          <div><strong>In house:</strong> {formatCurrency(quotePortfolio.currentProjectQuote.inHouse)}</div>
-          <div><strong>Buyout:</strong> {formatCurrency(quotePortfolio.currentProjectQuote.buyout)}</div>
-          <div><strong>Services:</strong> {formatCurrency(quotePortfolio.currentProjectQuote.services)}</div>
-          <div><strong>Total:</strong> {formatCurrency(quotePortfolio.currentProjectQuote.total)}</div>
-        </div>
-      </div>
-
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1140 }}>
           <thead>
             <tr>
-              {['Project name', 'Sales', 'Lead engineer', 'Contract award', 'Go live', 'Quote due', 'Status'].map((heading) => (
+              {['Project #', 'Project name', 'Sales', 'Lead engineer', 'Contract award', 'Go live', 'Quote due', 'Status'].map((heading) => (
                 <th key={heading} style={headerCell}>{heading}</th>
               ))}
               {['In house', 'Buyout', 'Services', 'Total'].map((heading) => (
@@ -145,7 +130,8 @@ export default function ProjectExport() {
           </thead>
           <tbody>
             {quotePortfolio.rows.map((quote) => (
-              <tr key={`${quote.projectName}-${quote.sales}`}>
+              <tr key={quote.id}>
+                <td style={bodyCell}>{quote.projectNumber}</td>
                 <td style={bodyCell}>{quote.projectName}</td>
                 <td style={bodyCell}>{quote.sales}</td>
                 <td style={bodyCell}>{quote.leadEngineer}</td>
@@ -160,7 +146,7 @@ export default function ProjectExport() {
               </tr>
             ))}
             <tr>
-              <td style={totalsCell} colSpan={7}>Totals</td>
+              <td style={totalsCell} colSpan={8}>Totals</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.inHouse)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.buyout)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.services)}</td>

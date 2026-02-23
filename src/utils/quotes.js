@@ -1,14 +1,7 @@
-import {
-  calculateConveyanceHardwareCost,
-  calculateRoboticsHardwareCost,
-  calculateStorageInfrastructureCost,
-  calculateControlsElectricalCost,
-  calculateSoftwareSystemsCost,
-  calculateImplementationServicesCost,
-} from './costs.js';
-
 export const SAMPLE_QUOTES = [
   {
+    id: 'sample-1',
+    projectNumber: '1001',
     projectName: 'project 1',
     sales: 'danny1',
     leadEngineer: 'chuck 1',
@@ -19,8 +12,11 @@ export const SAMPLE_QUOTES = [
     inHouse: 10000,
     buyout: 30000,
     services: 10000,
+    modules: {},
   },
   {
+    id: 'sample-2',
+    projectNumber: '1002',
     projectName: 'project 2',
     sales: 'danny2',
     leadEngineer: 'chuck 2',
@@ -31,8 +27,11 @@ export const SAMPLE_QUOTES = [
     inHouse: 25123,
     buyout: 13584,
     services: 9676.75,
+    modules: {},
   },
   {
+    id: 'sample-3',
+    projectNumber: '1003',
     projectName: 'project 3',
     sales: 'danny3',
     leadEngineer: 'chuck 3',
@@ -43,8 +42,11 @@ export const SAMPLE_QUOTES = [
     inHouse: 0,
     buyout: 1550015,
     services: 186001.8,
+    modules: {},
   },
   {
+    id: 'sample-4',
+    projectNumber: '1004',
     projectName: 'project 4',
     sales: 'danny4',
     leadEngineer: 'chuck 4',
@@ -55,8 +57,11 @@ export const SAMPLE_QUOTES = [
     inHouse: 2000,
     buyout: 1510,
     services: 877.5,
+    modules: {},
   },
   {
+    id: 'sample-5',
+    projectNumber: '1005',
     projectName: 'project 5',
     sales: 'danny5',
     leadEngineer: 'chuck 5',
@@ -67,8 +72,11 @@ export const SAMPLE_QUOTES = [
     inHouse: 16258,
     buyout: 545115,
     services: 39296.11,
+    modules: {},
   },
   {
+    id: 'sample-6',
+    projectNumber: '1006',
     projectName: 'project 6',
     sales: 'danny6',
     leadEngineer: 'chuck 6',
@@ -79,8 +87,11 @@ export const SAMPLE_QUOTES = [
     inHouse: 250000,
     buyout: 0,
     services: 62500,
+    modules: {},
   },
   {
+    id: 'sample-7',
+    projectNumber: '1007',
     projectName: 'project 7',
     sales: 'danny7',
     leadEngineer: 'chuck 7',
@@ -91,6 +102,7 @@ export const SAMPLE_QUOTES = [
     inHouse: 0,
     buyout: 250000,
     services: 17500,
+    modules: {},
   },
 ];
 
@@ -107,89 +119,40 @@ export function formatCurrency(value) {
   }).format(value);
 }
 
-export function normalizeQuoteStatus(status) {
-  if (!status) {
-    return 'working';
-  }
-
-  const normalized = String(status).toLowerCase();
-  if (normalized.includes('complete')) {
-    return 'complete';
-  }
-
-  return 'working';
-}
-
-export function getProjectCostByModule(moduleData = {}) {
-  return {
-    robotic_systems: calculateRoboticsHardwareCost(moduleData.robotic_systems?.robots || []),
-    conveyance: calculateConveyanceHardwareCost(moduleData.conveyance?.segments || []),
-    storage: calculateStorageInfrastructureCost(moduleData.storage?.zones || []),
-    controls: calculateControlsElectricalCost(moduleData.controls?.panels || []),
-    software: calculateSoftwareSystemsCost(moduleData.software?.applications || []),
-    implementation: calculateImplementationServicesCost(moduleData.implementation?.services || []),
-  };
-}
-
-export function buildQuoteFromProjectState(state) {
-  const costByModule = getProjectCostByModule(state.moduleData);
-
-  let inHouse = 0;
-  let buyout = 0;
-
-  Object.entries(state.modules).forEach(([moduleId, module]) => {
-    const moduleCost = costByModule[moduleId] || 0;
-    const sourcing = module?.sourcing;
-
-    if (moduleId === 'implementation') {
-      return;
-    }
-
-    if (sourcing === 'In-House') {
-      inHouse += moduleCost;
-      return;
-    }
-
-    if (sourcing === 'Hybrid') {
-      inHouse += moduleCost * 0.5;
-      buyout += moduleCost * 0.5;
-      return;
-    }
-
-    buyout += moduleCost;
-  });
-
-  const services = costByModule.implementation || 0;
-
-  return {
-    projectName: state.projectInfo.name || 'Untitled Project',
-    sales: state.projectInfo.sales || 'Unassigned',
-    leadEngineer: state.projectInfo.lead || 'Unassigned',
-    contractAward: state.projectInfo.contractAward || 'mm/dd//yyyy',
-    goLive: state.projectInfo.goLive || 'mm/dd//yyyy',
-    quoteDue: state.projectInfo.quoteDue || 'mm/dd//yyyy',
-    status: normalizeQuoteStatus(state.projectInfo.status),
-    inHouse,
-    buyout,
-    services,
-  };
-}
-
 export function addQuoteTotal(quote) {
   return {
     ...quote,
-    total: quote.inHouse + quote.buyout + quote.services,
+    total: Number(quote.inHouse || 0) + Number(quote.buyout || 0) + Number(quote.services || 0),
   };
 }
 
 export function summarizeQuoteTotals(quotes = []) {
   return quotes.reduce(
     (acc, quote) => ({
-      inHouse: acc.inHouse + quote.inHouse,
-      buyout: acc.buyout + quote.buyout,
-      services: acc.services + quote.services,
-      total: acc.total + quote.total,
+      inHouse: acc.inHouse + Number(quote.inHouse || 0),
+      buyout: acc.buyout + Number(quote.buyout || 0),
+      services: acc.services + Number(quote.services || 0),
+      total: acc.total + Number(quote.total || 0),
     }),
     { inHouse: 0, buyout: 0, services: 0, total: 0 }
   );
+}
+
+export function createEmptyQuote(overrides = {}) {
+  return {
+    id: crypto.randomUUID(),
+    projectNumber: '',
+    projectName: '',
+    sales: '',
+    leadEngineer: '',
+    contractAward: '',
+    goLive: '',
+    quoteDue: '',
+    status: 'working',
+    inHouse: 0,
+    buyout: 0,
+    services: 0,
+    modules: {},
+    ...overrides,
+  };
 }
