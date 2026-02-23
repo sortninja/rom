@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useProject } from '../context/ProjectContext';
+import { MODULE_DEFINITIONS } from '../data/modules';
 import { AlertTriangle, Download, FileText, RotateCcw } from 'lucide-react';
 import {
   addQuoteTotal,
@@ -27,6 +28,32 @@ export default function ProjectExport() {
       totals: summarizeQuoteTotals(rows),
     };
   }, [state.moduleData, state.projectQuotes]);
+
+
+
+  const moduleNameById = useMemo(
+    () => Object.fromEntries(MODULE_DEFINITIONS.map((moduleDefinition) => [moduleDefinition.id, moduleDefinition.name])),
+    []
+  );
+
+  const getSelectedModuleNames = (quote) => {
+    return Object.entries(quote.modules || {})
+      .filter(([, module]) => module?.selected)
+      .map(([moduleId]) => moduleNameById[moduleId] || moduleId);
+  };
+
+  const formatModuleBreakdown = (quote) => {
+    if (!quote.moduleBreakdown?.length) {
+      return 'N/A';
+    }
+
+    return quote.moduleBreakdown
+      .map((moduleRow) => {
+        const moduleName = moduleNameById[moduleRow.moduleId] || moduleRow.moduleId;
+        return `${moduleName} (IH: ${formatCurrency(moduleRow.inHouse)}, BO: ${formatCurrency(moduleRow.buyout)}, SV: ${formatCurrency(moduleRow.services)}, Total: ${formatCurrency(moduleRow.total)})`;
+      })
+      .join(' | ');
+  };
 
   const exportToJSON = () => {
     const data = {
@@ -65,10 +92,13 @@ export default function ProjectExport() {
       'Buyout',
       'Services',
       'Total',
+      'Selected modules',
+      'Module breakdown',
     ];
 
-    const rowToCsv = (row) => (
-      [
+    const rowToCsv = (row) => {
+      const selectedModules = getSelectedModuleNames(row);
+      return [
         row.projectNumber,
         row.projectName,
         row.sales,
@@ -82,13 +112,15 @@ export default function ProjectExport() {
         row.buyout,
         row.services,
         row.total,
+        selectedModules.join(' | '),
+        formatModuleBreakdown(row),
       ]
         .map((value) => `"${value}"`)
-        .join(',')
-    );
+        .join(',');
+    };
 
     const rows = quotePortfolio.rows.map(rowToCsv);
-    rows.push(`"Totals","","","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}"`);
+    rows.push(`"Totals","","","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}","",""`);
 
     const csvContent = `${headers.join(',')}\n${rows.join('\n')}\n`;
 
@@ -134,7 +166,7 @@ export default function ProjectExport() {
               {['Project #', 'Project name', 'Sales', 'Lead engineer', 'Contract award', 'Go live', 'Quote due', 'Status', 'Pricing mode'].map((heading) => (
                 <th key={heading} style={headerCell}>{heading}</th>
               ))}
-              {['In house', 'Buyout', 'Services', 'Total'].map((heading) => (
+              {['In house', 'Buyout', 'Services', 'Total', 'Modules', 'Module breakdown'].map((heading) => (
                 <th key={heading} style={headerCellRight}>{heading}</th>
               ))}
             </tr>
@@ -155,6 +187,8 @@ export default function ProjectExport() {
                 <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
                 <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
                 <td style={bodyCellRight}>{formatCurrency(quote.total)}</td>
+                <td style={bodyCell}>{getSelectedModuleNames(quote).length ? getSelectedModuleNames(quote).join(', ') : 'None'}</td>
+                <td style={bodyCell}>{formatModuleBreakdown(quote)}</td>
               </tr>
             ))}
             <tr>
@@ -163,6 +197,8 @@ export default function ProjectExport() {
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.buyout)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.services)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.total)}</td>
+              <td style={totalsCell}>-</td>
+              <td style={totalsCell}>-</td>
             </tr>
           </tbody>
         </table>
