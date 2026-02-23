@@ -3,6 +3,7 @@ import { useProject } from '../context/ProjectContext';
 import { AlertTriangle, Download, FileText, RotateCcw } from 'lucide-react';
 import {
   addQuoteTotal,
+  calculateQuoteCostDetails,
   formatCurrency,
   summarizeQuoteTotals,
 } from '../utils/quotes';
@@ -11,7 +12,15 @@ export default function ProjectExport() {
   const { state, resetProjectState } = useProject();
 
   const quotePortfolio = useMemo(() => {
-    const rows = state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData));
+    const rows = state.projectQuotes.map((quote) => {
+      const enrichedQuote = addQuoteTotal(quote, state.moduleData);
+      const details = calculateQuoteCostDetails(quote, state.moduleData);
+
+      return {
+        ...enrichedQuote,
+        moduleBreakdown: details.moduleBreakdown,
+      };
+    });
 
     return {
       rows,
@@ -51,6 +60,7 @@ export default function ProjectExport() {
       'Go live',
       'Quote due',
       'Status',
+      'Pricing mode',
       'In house',
       'Buyout',
       'Services',
@@ -67,6 +77,7 @@ export default function ProjectExport() {
         row.goLive,
         row.quoteDue,
         row.status,
+        row.pricingMode,
         row.inHouse,
         row.buyout,
         row.services,
@@ -77,7 +88,7 @@ export default function ProjectExport() {
     );
 
     const rows = quotePortfolio.rows.map(rowToCsv);
-    rows.push(`"Totals","","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}"`);
+    rows.push(`"Totals","","","","","","","","","${quotePortfolio.totals.inHouse}","${quotePortfolio.totals.buyout}","${quotePortfolio.totals.services}","${quotePortfolio.totals.total}"`);
 
     const csvContent = `${headers.join(',')}\n${rows.join('\n')}\n`;
 
@@ -120,7 +131,7 @@ export default function ProjectExport() {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1140 }}>
           <thead>
             <tr>
-              {['Project #', 'Project name', 'Sales', 'Lead engineer', 'Contract award', 'Go live', 'Quote due', 'Status'].map((heading) => (
+              {['Project #', 'Project name', 'Sales', 'Lead engineer', 'Contract award', 'Go live', 'Quote due', 'Status', 'Pricing mode'].map((heading) => (
                 <th key={heading} style={headerCell}>{heading}</th>
               ))}
               {['In house', 'Buyout', 'Services', 'Total'].map((heading) => (
@@ -139,6 +150,7 @@ export default function ProjectExport() {
                 <td style={bodyCell}>{quote.goLive}</td>
                 <td style={bodyCell}>{quote.quoteDue}</td>
                 <td style={bodyCell}>{quote.status}</td>
+                <td style={bodyCell}>{quote.pricingMode}</td>
                 <td style={bodyCellRight}>{formatCurrency(quote.inHouse)}</td>
                 <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
                 <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
@@ -146,7 +158,7 @@ export default function ProjectExport() {
               </tr>
             ))}
             <tr>
-              <td style={totalsCell} colSpan={8}>Totals</td>
+              <td style={totalsCell} colSpan={9}>Totals</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.inHouse)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.buyout)}</td>
               <td style={totalsCellRight}>{formatCurrency(quotePortfolio.totals.services)}</td>

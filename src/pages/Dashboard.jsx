@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { MODULE_DEFINITIONS } from '../data/modules';
-import { addQuoteTotal, createEmptyQuote, formatCurrency, summarizeQuoteTotals } from '../utils/quotes';
+import { addQuoteTotal, calculateQuoteCostDetails, createEmptyQuote, formatCurrency, summarizeQuoteTotals } from '../utils/quotes';
 
 const STATUS_OPTIONS = ['working', 'complete'];
 const PRICING_MODE_OPTIONS = ['manual', 'auto'];
@@ -17,6 +17,16 @@ export default function Dashboard() {
   const quotes = useMemo(() => state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [state.moduleData, state.projectQuotes]);
   const totals = useMemo(() => summarizeQuoteTotals(quotes), [quotes]);
   const selectedQuote = useMemo(() => state.projectQuotes.find((quote) => quote.id === selectedQuoteId) || null, [selectedQuoteId, state.projectQuotes]);
+
+  const moduleNameById = useMemo(
+    () => Object.fromEntries(MODULE_DEFINITIONS.map((moduleDefinition) => [moduleDefinition.id, moduleDefinition.name])),
+    []
+  );
+
+  const selectedQuoteCostDetails = useMemo(
+    () => (selectedQuote ? calculateQuoteCostDetails(selectedQuote, state.moduleData) : null),
+    [selectedQuote, state.moduleData]
+  );
 
   useEffect(() => {
     setEditQuote(selectedQuote ? { ...selectedQuote } : null);
@@ -248,6 +258,36 @@ export default function Dashboard() {
               toggleQuoteModule={toggleQuoteModule}
               setQuoteModuleSourcing={setQuoteModuleSourcing}
             />
+          )}
+
+          {selectedQuote && selectedQuote.pricingMode === 'auto' && selectedQuoteCostDetails && selectedQuoteCostDetails.moduleBreakdown.length > 0 && (
+            <div className="card">
+              <h2 className="text-h2" style={{ marginTop: 0 }}>Auto Pricing Breakdown</h2>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={headerCell}>Module</th>
+                      <th style={headerCellRight}>In house</th>
+                      <th style={headerCellRight}>Buyout</th>
+                      <th style={headerCellRight}>Services</th>
+                      <th style={headerCellRight}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedQuoteCostDetails.moduleBreakdown.map((row) => (
+                      <tr key={row.moduleId}>
+                        <td style={bodyCell}>{moduleNameById[row.moduleId] || row.moduleId}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.inHouse)}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.buyout)}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.services)}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </>
       )}

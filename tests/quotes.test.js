@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   addQuoteTotal,
   calculateQuoteBuckets,
+  calculateQuoteCostDetails,
   createEmptyQuote,
   formatCurrency,
   summarizeQuoteTotals,
@@ -65,4 +66,25 @@ test('createEmptyQuote provides required quote defaults and override support', (
   assert.equal(quote.pricingMode, 'manual');
   assert.equal(quote.inHouse, 0);
   assert.deepEqual(quote.modules, {});
+});
+
+
+test('calculateQuoteCostDetails includes moduleBreakdown rows in auto mode', () => {
+  const details = calculateQuoteCostDetails(
+    {
+      pricingMode: 'auto',
+      modules: {
+        robotic_systems: { selected: true, sourcing: 'Buyout' },
+        implementation: { selected: true, sourcing: 'In-House' },
+      },
+    },
+    {
+      robotic_systems: { robots: [{ quantity: 1, unitCost: 500 }] },
+      implementation: { services: [{ hours: 2, hourlyRate: 100 }] },
+    }
+  );
+
+  assert.equal(details.moduleBreakdown.length, 2);
+  assert.equal(details.moduleBreakdown[0].moduleId, 'robotic_systems');
+  assert.equal(details.moduleBreakdown[1].services, 200);
 });

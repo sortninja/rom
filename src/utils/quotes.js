@@ -146,18 +146,25 @@ function getModuleBaseCosts(moduleData = {}) {
   };
 }
 
-export function calculateQuoteBuckets(quote, moduleData = {}) {
+
+export function calculateQuoteCostDetails(quote, moduleData = {}) {
+  const moduleBaseCosts = getModuleBaseCosts(moduleData);
   const quotePricingMode = quote?.pricingMode || 'manual';
 
   if (quotePricingMode !== 'auto') {
-    return {
+    const manualBuckets = {
       inHouse: Number(quote?.inHouse || 0),
       buyout: Number(quote?.buyout || 0),
       services: Number(quote?.services || 0),
     };
+
+    return {
+      buckets: manualBuckets,
+      moduleBreakdown: [],
+    };
   }
 
-  const moduleBaseCosts = getModuleBaseCosts(moduleData);
+  const moduleBreakdown = [];
   let inHouse = 0;
   let buyout = 0;
 
@@ -169,28 +176,49 @@ export function calculateQuoteBuckets(quote, moduleData = {}) {
     const moduleCost = moduleBaseCosts[moduleId] || 0;
 
     if (moduleId === 'implementation') {
+      moduleBreakdown.push({
+        moduleId,
+        inHouse: 0,
+        buyout: 0,
+        services: moduleCost,
+        total: moduleCost,
+      });
       return;
     }
 
     if (module.sourcing === 'In-House') {
       inHouse += moduleCost;
+      moduleBreakdown.push({ moduleId, inHouse: moduleCost, buyout: 0, services: 0, total: moduleCost });
       return;
     }
 
     if (module.sourcing === 'Hybrid') {
-      inHouse += moduleCost * 0.5;
-      buyout += moduleCost * 0.5;
+      const inHousePortion = moduleCost * 0.5;
+      const buyoutPortion = moduleCost * 0.5;
+      inHouse += inHousePortion;
+      buyout += buyoutPortion;
+      moduleBreakdown.push({ moduleId, inHouse: inHousePortion, buyout: buyoutPortion, services: 0, total: moduleCost });
       return;
     }
 
     buyout += moduleCost;
+    moduleBreakdown.push({ moduleId, inHouse: 0, buyout: moduleCost, services: 0, total: moduleCost });
   });
 
+  const services = moduleBaseCosts.implementation || 0;
+
   return {
-    inHouse,
-    buyout,
-    services: moduleBaseCosts.implementation || 0,
+    buckets: {
+      inHouse,
+      buyout,
+      services,
+    },
+    moduleBreakdown,
   };
+}
+
+export function calculateQuoteBuckets(quote, moduleData = {}) {
+  return calculateQuoteCostDetails(quote, moduleData).buckets;
 }
 
 export function addQuoteTotal(quote, moduleData) {
