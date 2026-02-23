@@ -10,14 +10,77 @@ import {
 } from '../utils/quotes';
 
 export default function Dashboard() {
-  const { state } = useProject();
+  const { state, dispatch } = useProject();
+  const [showNewQuoteForm, setShowNewQuoteForm] = useState(false);
+  const [selectedQuoteId, setSelectedQuoteId] = useState(state.projectQuotes[0]?.id || null);
+  const [newQuote, setNewQuote] = useState(() => createEmptyQuote());
+  const [editQuote, setEditQuote] = useState(null);
+  const [createError, setCreateError] = useState('');
+  const [editError, setEditError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('projectNumberAsc');
+  const [pricingModeFilter, setPricingModeFilter] = useState('all');
 
-  const { quotes, totals } = useMemo(() => {
-    const currentProjectQuote = addQuoteTotal(buildQuoteFromProjectState(state));
-    const rows = [...SAMPLE_QUOTES.map(addQuoteTotal), currentProjectQuote];
-    return {
-      quotes: rows,
-      totals: summarizeQuoteTotals(rows),
+  const quotes = useMemo(() => state.projectQuotes.map((quote) => addQuoteTotal(quote, state.moduleData)), [state.moduleData, state.projectQuotes]);
+  const filteredQuotes = useMemo(() => {
+    return quotes.filter((quote) => {
+      const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
+      const matchesPricingMode = pricingModeFilter === 'all' || quote.pricingMode === pricingModeFilter;
+      const normalizedSearch = searchTerm.trim().toLowerCase();
+      const matchesSearch = !normalizedSearch
+        || quote.projectNumber.toLowerCase().includes(normalizedSearch)
+        || quote.projectName.toLowerCase().includes(normalizedSearch)
+        || quote.sales.toLowerCase().includes(normalizedSearch);
+
+      return matchesStatus && matchesPricingMode && matchesSearch;
+    });
+  }, [pricingModeFilter, quotes, searchTerm, statusFilter]);
+  const sortedQuotes = useMemo(() => sortQuotes(filteredQuotes, sortBy), [filteredQuotes, sortBy]);
+  const filteredTotals = useMemo(() => summarizeQuoteTotals(sortedQuotes), [sortedQuotes]);
+  const pipelineMetrics = useMemo(() => ({
+    working: sortedQuotes.filter((quote) => quote.status === 'working').length,
+    complete: sortedQuotes.filter((quote) => quote.status === 'complete').length,
+    autoPricing: sortedQuotes.filter((quote) => quote.pricingMode === 'auto').length,
+  }), [sortedQuotes]);
+  const selectedQuote = useMemo(() => {
+    const matchedQuote = state.projectQuotes.find((quote) => quote.id === selectedQuoteId);
+    return matchedQuote ? normalizeQuote(matchedQuote) : null;
+  }, [selectedQuoteId, state.projectQuotes]);
+
+  const moduleNameById = useMemo(
+    () => Object.fromEntries(MODULE_DEFINITIONS.map((moduleDefinition) => [moduleDefinition.id, moduleDefinition.name])),
+    []
+  );
+
+  const selectedQuoteCostDetails = useMemo(
+    () => (selectedQuote ? calculateQuoteCostDetails(selectedQuote, state.moduleData) : null),
+    [selectedQuote, state.moduleData]
+  );
+
+  useEffect(() => {
+    setEditQuote(selectedQuote ? normalizeQuote(selectedQuote) : null);
+  }, [selectedQuoteId, selectedQuote]);
+
+  const handleCreateQuote = (event) => {
+    event.preventDefault();
+
+    const quoteFieldErrors = validateQuoteFields(newQuote);
+    if (quoteFieldErrors.length > 0) {
+      setCreateError(quoteFieldErrors[0]);
+      return;
+    }
+
+    if (isProjectNumberInUse(state.projectQuotes, newQuote.projectNumber)) {
+      setCreateError('Project # already exists. Please use a unique project number.');
+      return;
+    }
+
+    const payload = {
+      ...newQuote,
+      inHouse: Number(newQuote.inHouse) || 0,
+      buyout: Number(newQuote.buyout) || 0,
+      services: Number(newQuote.services) || 0,
     };
 
     dispatch({ type: 'ADD_PROJECT_QUOTE', payload });
@@ -112,48 +175,275 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="card" style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1140 }}>
-          <thead>
-            <tr>
-              <th style={headerCell}>Project name</th>
-              <th style={headerCell}>Sales</th>
-              <th style={headerCell}>Lead engineer</th>
-              <th style={headerCell}>Contract award</th>
-              <th style={headerCell}>Go live</th>
-              <th style={headerCell}>Quote due</th>
-              <th style={headerCell}>Status</th>
-              <th style={headerCellRight}>In house</th>
-              <th style={headerCellRight}>Buyout</th>
-              <th style={headerCellRight}>Services</th>
-              <th style={headerCellRight}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {quotes.map((quote) => (
-              <tr key={`${quote.projectName}-${quote.sales}`}>
-                <td style={bodyCell}>{quote.projectName}</td>
-                <td style={bodyCell}>{quote.sales}</td>
-                <td style={bodyCell}>{quote.leadEngineer}</td>
-                <td style={bodyCell}>{quote.contractAward}</td>
-                <td style={bodyCell}>{quote.goLive}</td>
-                <td style={bodyCell}>{quote.quoteDue}</td>
-                <td style={bodyCell}>{quote.status}</td>
-                <td style={bodyCellRight}>{formatCurrency(quote.inHouse)}</td>
-                <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
-                <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
-                <td style={bodyCellRight}>{formatCurrency(quote.total)}</td>
-              </tr>
-            ))}
-            <tr>
-              <td style={totalsCell} colSpan={7}>Totals</td>
-              <td style={totalsCellRight}>{formatCurrency(totals.inHouse)}</td>
-              <td style={totalsCellRight}>{formatCurrency(totals.buyout)}</td>
-              <td style={totalsCellRight}>{formatCurrency(totals.services)}</td>
-              <td style={totalsCellRight}>{formatCurrency(totals.total)}</td>
-            </tr>
-          </tbody>
-        </table>
+      {showNewQuoteForm && (
+        <div className="card">
+          <h2 className="text-h2" style={{ marginTop: 0 }}>Create Quote</h2>
+          <form onSubmit={handleCreateQuote} className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-md)' }}>
+            <label><span className="text-small">Project #</span><input name="projectNumber" value={newQuote.projectNumber} onChange={updateNewQuoteField} style={inputStyle} required /></label>
+            <label><span className="text-small">Project name</span><input name="projectName" value={newQuote.projectName} onChange={updateNewQuoteField} style={inputStyle} required /></label>
+            <label><span className="text-small">Sales</span><input name="sales" value={newQuote.sales} onChange={updateNewQuoteField} style={inputStyle} required /></label>
+            <label><span className="text-small">Lead engineer</span><input name="leadEngineer" value={newQuote.leadEngineer} onChange={updateNewQuoteField} style={inputStyle} required /></label>
+            <label><span className="text-small">Contract award</span><input name="contractAward" value={newQuote.contractAward} onChange={updateNewQuoteField} style={inputStyle} placeholder="MM/DD/YYYY" /></label>
+            <label><span className="text-small">Go live</span><input name="goLive" value={newQuote.goLive} onChange={updateNewQuoteField} style={inputStyle} placeholder="MM/DD/YYYY" /></label>
+            <label><span className="text-small">Quote due</span><input name="quoteDue" value={newQuote.quoteDue} onChange={updateNewQuoteField} style={inputStyle} placeholder="MM/DD/YYYY" /></label>
+            <label>
+              <span className="text-small">Status</span>
+              <select name="status" value={newQuote.status} onChange={updateNewQuoteField} style={inputStyle}>
+                {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+              </select>
+            </label>
+            <label>
+              <span className="text-small">Pricing mode</span>
+              <select name="pricingMode" value={newQuote.pricingMode} onChange={updateNewQuoteField} style={inputStyle}>
+                {PRICING_MODE_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+              </select>
+            </label>
+            <label><span className="text-small">In house</span><input name="inHouse" type="number" min="0" step="0.01" value={newQuote.inHouse} onChange={updateNewQuoteField} style={inputStyle} disabled={newQuote.pricingMode === 'auto'} /></label>
+            <label><span className="text-small">Buyout</span><input name="buyout" type="number" min="0" step="0.01" value={newQuote.buyout} onChange={updateNewQuoteField} style={inputStyle} disabled={newQuote.pricingMode === 'auto'} /></label>
+            <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={newQuote.services} onChange={updateNewQuoteField} style={inputStyle} disabled={newQuote.pricingMode === 'auto'} /></label>
+            <div className="flex items-end"><button type="submit" style={primaryButtonStyle}>Create Quote</button></div>
+            {newQuote.pricingMode === 'auto' && <div className="text-small text-muted">Auto mode derives in-house/buyout/services from selected quote modules and current configuration data.</div>}
+            {createError && <div style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{createError}</div>}
+          </form>
+        </div>
+      )}
+
+      {showNewQuoteForm && selectedQuote && (
+        <QuoteModulesPanel
+          selectedQuote={selectedQuote}
+          toggleQuoteModule={toggleQuoteModule}
+          setQuoteModuleSourcing={setQuoteModuleSourcing}
+        />
+      )}
+
+      {!showNewQuoteForm && (
+        <>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-md)' }}>
+            <div className="card">
+              <div className="text-small text-muted">Working quotes</div>
+              <div className="text-h2">{pipelineMetrics.working}</div>
+            </div>
+            <div className="card">
+              <div className="text-small text-muted">Completed quotes</div>
+              <div className="text-h2">{pipelineMetrics.complete}</div>
+            </div>
+            <div className="card">
+              <div className="text-small text-muted">Auto pricing quotes</div>
+              <div className="text-h2">{pipelineMetrics.autoPricing}</div>
+            </div>
+            <div className="card">
+              <div className="text-small text-muted">Filtered total value</div>
+              <div className="text-h2">{formatCurrency(filteredTotals.total)}</div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+              <div className="flex items-center gap-md" style={{ flexWrap: 'wrap' }}>
+                <input
+                  placeholder="Search by project #, name, or sales"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  style={{ ...inputStyle, marginTop: 0, width: 320 }}
+                />
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={{ ...inputStyle, marginTop: 0, width: 180 }}>
+                  <option value="all">All statuses</option>
+                  {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+                </select>
+                <select value={pricingModeFilter} onChange={(event) => setPricingModeFilter(event.target.value)} style={{ ...inputStyle, marginTop: 0, width: 180 }}>
+                  <option value="all">All pricing modes</option>
+                  {PRICING_MODE_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+                </select>
+                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} style={{ ...inputStyle, marginTop: 0, width: 210 }}>
+                  <option value="projectNumberAsc">Sort: Project # (asc)</option>
+                  <option value="totalDesc">Sort: Total (high to low)</option>
+                  <option value="quoteDueAsc">Sort: Quote due (soonest)</option>
+                </select>
+                <button type="button" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setPricingModeFilter('all'); setSortBy('projectNumberAsc'); }} style={secondaryButtonStyle}>Clear</button>
+              </div>
+              <span className="text-small text-muted">Showing {sortedQuotes.length} of {quotes.length} quotes</span>
+            </div>
+          </div>
+
+          <div className="card" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
+              <thead>
+                <tr>
+                  <th style={headerCell}>Project #</th>
+                  <th style={headerCell}>Project name</th>
+                  <th style={headerCell}>Sales</th>
+                  <th style={headerCell}>Lead engineer</th>
+                  <th style={headerCell}>Contract award</th>
+                  <th style={headerCell}>Go live</th>
+                  <th style={headerCell}>Quote due</th>
+                  <th style={headerCell}>Status</th>
+                  <th style={headerCell}>Pricing</th>
+                  <th style={headerCellRight}>In house</th>
+                  <th style={headerCellRight}>Buyout</th>
+                  <th style={headerCellRight}>Services</th>
+                  <th style={headerCellRight}>Total</th>
+                  <th style={headerCell}>Modules</th>
+                  <th style={headerCell}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedQuotes.length === 0 ? (
+                  <tr><td style={bodyCell} colSpan={15}>No quotes match the current filters.</td></tr>
+                ) : sortedQuotes.map((quote) => (
+                  <tr key={quote.id} style={selectedQuoteId === quote.id ? highlightedRowStyle : undefined}>
+                    <td style={bodyCell}>
+                      <button type="button" onClick={() => setSelectedQuoteId(quote.id)} style={jobNumberButtonStyle}>{quote.projectNumber}</button>
+                    </td>
+                    <td style={bodyCell}>{quote.projectName}</td>
+                    <td style={bodyCell}>{quote.sales}</td>
+                    <td style={bodyCell}>{quote.leadEngineer}</td>
+                    <td style={bodyCell}>{quote.contractAward}</td>
+                    <td style={bodyCell}>{quote.goLive}</td>
+                    <td style={bodyCell}>{quote.quoteDue}</td>
+                    <td style={bodyCell}>{quote.status}</td>
+                    <td style={bodyCell}>{quote.pricingMode}</td>
+                    <td style={bodyCellRight}>{formatCurrency(quote.inHouse)}</td>
+                    <td style={bodyCellRight}>{formatCurrency(quote.buyout)}</td>
+                    <td style={bodyCellRight}>{formatCurrency(quote.services)}</td>
+                    <td style={bodyCellRight}>{formatCurrency(quote.total)}</td>
+                    <td style={bodyCell}>{Object.values(quote.modules || {}).filter((module) => module?.selected).length}</td>
+                    <td style={bodyCell}>
+                      <button type="button" onClick={() => removeQuote(quote.id)} style={iconDangerButton} aria-label="Delete quote">
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={totalsCell} colSpan={9}>Totals</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.inHouse)}</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.buyout)}</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.services)}</td>
+                  <td style={totalsCellRight}>{formatCurrency(filteredTotals.total)}</td>
+                  <td style={totalsCell}>{sortedQuotes.reduce((acc, quote) => acc + Object.values(quote.modules || {}).filter((module) => module?.selected).length, 0)}</td>
+                  <td style={totalsCell} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {editQuote && (
+            <div className="card">
+              <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+                <h2 className="text-h2" style={{ marginTop: 0, marginBottom: 0 }}>Edit Quote #{editQuote.projectNumber}</h2>
+                <button type="button" onClick={saveEditedQuote} className="flex items-center gap-sm" style={primaryButtonStyle}>
+                  <Save size={16} />
+                  Save Quote
+                </button>
+              </div>
+              <form onSubmit={saveEditedQuote} className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
+                <label><span className="text-small">Project #</span><input name="projectNumber" value={editQuote.projectNumber} onChange={updateEditQuoteField} style={inputStyle} required /></label>
+                <label><span className="text-small">Project name</span><input name="projectName" value={editQuote.projectName} onChange={updateEditQuoteField} style={inputStyle} required /></label>
+                <label><span className="text-small">Sales</span><input name="sales" value={editQuote.sales} onChange={updateEditQuoteField} style={inputStyle} required /></label>
+                <label><span className="text-small">Lead engineer</span><input name="leadEngineer" value={editQuote.leadEngineer} onChange={updateEditQuoteField} style={inputStyle} required /></label>
+                <label><span className="text-small">Contract award</span><input name="contractAward" value={editQuote.contractAward} onChange={updateEditQuoteField} style={inputStyle} /></label>
+                <label><span className="text-small">Go live</span><input name="goLive" value={editQuote.goLive} onChange={updateEditQuoteField} style={inputStyle} /></label>
+                <label><span className="text-small">Quote due</span><input name="quoteDue" value={editQuote.quoteDue} onChange={updateEditQuoteField} style={inputStyle} /></label>
+                <label><span className="text-small">Status</span>
+                  <select name="status" value={editQuote.status} onChange={updateEditQuoteField} style={inputStyle}>
+                    {STATUS_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+                  </select>
+                </label>
+                <label><span className="text-small">Pricing mode</span>
+                  <select name="pricingMode" value={editQuote.pricingMode} onChange={updateEditQuoteField} style={inputStyle}>
+                    {PRICING_MODE_OPTIONS.map((option) => (<option key={option} value={option}>{option}</option>))}
+                  </select>
+                </label>
+                <label><span className="text-small">In house</span><input name="inHouse" type="number" min="0" step="0.01" value={editQuote.inHouse} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
+                <label><span className="text-small">Buyout</span><input name="buyout" type="number" min="0" step="0.01" value={editQuote.buyout} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
+                <label><span className="text-small">Services</span><input name="services" type="number" min="0" step="0.01" value={editQuote.services} onChange={updateEditQuoteField} style={inputStyle} disabled={editQuote.pricingMode === 'auto'} /></label>
+                {editQuote.pricingMode === 'auto' && <div className="text-small text-muted">Auto mode derives in-house/buyout/services from selected quote modules and current configuration data.</div>}
+                {editError && <div style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{editError}</div>}
+              </form>
+            </div>
+          )}
+
+          {selectedQuote && (
+            <QuoteModulesPanel
+              selectedQuote={selectedQuote}
+              toggleQuoteModule={toggleQuoteModule}
+              setQuoteModuleSourcing={setQuoteModuleSourcing}
+            />
+          )}
+
+          {selectedQuote && selectedQuote.pricingMode === 'auto' && selectedQuoteCostDetails && selectedQuoteCostDetails.moduleBreakdown.length > 0 && (
+            <div className="card">
+              <h2 className="text-h2" style={{ marginTop: 0 }}>Auto Pricing Breakdown</h2>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={headerCell}>Module</th>
+                      <th style={headerCellRight}>In house</th>
+                      <th style={headerCellRight}>Buyout</th>
+                      <th style={headerCellRight}>Services</th>
+                      <th style={headerCellRight}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedQuoteCostDetails.moduleBreakdown.map((row) => (
+                      <tr key={row.moduleId}>
+                        <td style={bodyCell}>{moduleNameById[row.moduleId] || row.moduleId}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.inHouse)}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.buyout)}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.services)}</td>
+                        <td style={bodyCellRight}>{formatCurrency(row.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function QuoteModulesPanel({ selectedQuote, toggleQuoteModule, setQuoteModuleSourcing }) {
+  return (
+    <div className="card">
+      <h2 className="text-h2" style={{ marginTop: 0 }}>Quote Modules for Job #{selectedQuote.projectNumber}</h2>
+      <p className="text-small text-muted" style={{ marginTop: 0 }}>Selected modules: {Object.values(selectedQuote.modules || {}).filter((module) => module?.selected).length}</p>
+      <p className="text-small text-muted" style={{ marginTop: 0 }}>Module assignment for the currently selected quote.</p>
+      <div className="grid gap-md">
+        {MODULE_DEFINITIONS.map((moduleDefinition) => {
+          const quoteModule = selectedQuote.modules?.[moduleDefinition.id];
+          const selected = Boolean(quoteModule?.selected);
+          const selectedSourcing = quoteModule?.sourcing || moduleDefinition.defaultSourcing || moduleDefinition.sourcingOptions[0];
+
+          return (
+            <div key={moduleDefinition.id} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)' }}>
+              <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+                <label className="flex items-center gap-sm" style={{ fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={(event) => toggleQuoteModule(selectedQuote.id, moduleDefinition, event.target.checked)}
+                  />
+                  {moduleDefinition.name}
+                </label>
+                {selected && (
+                  <select
+                    value={selectedSourcing}
+                    onChange={(event) => setQuoteModuleSourcing(selectedQuote.id, moduleDefinition.id, event.target.value)}
+                    style={{ ...inputStyle, width: 200, marginTop: 0 }}
+                  >
+                    {moduleDefinition.sourcingOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
