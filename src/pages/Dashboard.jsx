@@ -34,6 +34,11 @@ export default function Dashboard() {
   }, [quotes, searchTerm, statusFilter]);
   const sortedQuotes = useMemo(() => sortQuotes(filteredQuotes, sortBy), [filteredQuotes, sortBy]);
   const filteredTotals = useMemo(() => summarizeQuoteTotals(sortedQuotes), [sortedQuotes]);
+  const pipelineMetrics = useMemo(() => ({
+    working: sortedQuotes.filter((quote) => quote.status === 'working').length,
+    complete: sortedQuotes.filter((quote) => quote.status === 'complete').length,
+    autoPricing: sortedQuotes.filter((quote) => quote.pricingMode === 'auto').length,
+  }), [sortedQuotes]);
   const selectedQuote = useMemo(() => {
     const matchedQuote = state.projectQuotes.find((quote) => quote.id === selectedQuoteId);
     return matchedQuote ? normalizeQuote(matchedQuote) : null;
@@ -210,6 +215,25 @@ export default function Dashboard() {
 
       {!showNewQuoteForm && (
         <>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-md)' }}>
+            <div className="card">
+              <div className="text-small text-muted">Working quotes</div>
+              <div className="text-h2">{pipelineMetrics.working}</div>
+            </div>
+            <div className="card">
+              <div className="text-small text-muted">Completed quotes</div>
+              <div className="text-h2">{pipelineMetrics.complete}</div>
+            </div>
+            <div className="card">
+              <div className="text-small text-muted">Auto pricing quotes</div>
+              <div className="text-h2">{pipelineMetrics.autoPricing}</div>
+            </div>
+            <div className="card">
+              <div className="text-small text-muted">Filtered total value</div>
+              <div className="text-h2">{formatCurrency(filteredTotals.total)}</div>
+            </div>
+          </div>
+
           <div className="card">
             <div className="flex items-center justify-between" style={{ gap: 'var(--space-md)', flexWrap: 'wrap' }}>
               <div className="flex items-center gap-md" style={{ flexWrap: 'wrap' }}>
@@ -255,7 +279,9 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {sortedQuotes.map((quote) => (
+                {sortedQuotes.length === 0 ? (
+                  <tr><td style={bodyCell} colSpan={14}>No quotes match the current filters.</td></tr>
+                ) : sortedQuotes.map((quote) => (
                   <tr key={quote.id} style={selectedQuoteId === quote.id ? highlightedRowStyle : undefined}>
                     <td style={bodyCell}>
                       <button type="button" onClick={() => setSelectedQuoteId(quote.id)} style={jobNumberButtonStyle}>{quote.projectNumber}</button>
