@@ -123,6 +123,15 @@ export const SAMPLE_QUOTES = [
 ];
 
 
+
+function generateQuoteId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `quote-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export function toCsvCell(value) {
   const normalizedValue = String(value ?? '');
   const escapedValue = normalizedValue.replaceAll('"', '""');
@@ -232,7 +241,7 @@ export function calculateQuoteBuckets(quote, moduleData = {}) {
 
 export function normalizeQuote(rawQuote = {}) {
   return {
-    id: rawQuote.id || crypto.randomUUID(),
+    id: rawQuote.id || generateQuoteId(),
     projectNumber: String(rawQuote.projectNumber ?? '').trim(),
     projectName: String(rawQuote.projectName ?? '').trim(),
     sales: String(rawQuote.sales ?? '').trim(),
@@ -274,7 +283,7 @@ export function summarizeQuoteTotals(quotes = []) {
 
 export function createEmptyQuote(overrides = {}) {
   return normalizeQuote({
-    id: crypto.randomUUID(),
+    id: generateQuoteId(),
     projectNumber: '',
     projectName: '',
     sales: '',

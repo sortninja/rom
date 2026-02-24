@@ -159,3 +159,24 @@ test('toCsvCell escapes embedded double quotes safely', () => {
   assert.equal(toCsvCell('Robot "Alpha"'), '"Robot ""Alpha"""');
   assert.equal(toCsvCell(125), '"125"');
 });
+
+
+test('createEmptyQuote generates id without crypto.randomUUID', () => {
+  const originalCrypto = globalThis.crypto;
+
+  try {
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: undefined,
+    });
+
+    const quote = createEmptyQuote();
+    assert.equal(typeof quote.id, 'string');
+    assert.equal(quote.id.startsWith('quote-'), true);
+  } finally {
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: originalCrypto,
+    });
+  }
+});

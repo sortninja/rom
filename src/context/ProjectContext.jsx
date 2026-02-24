@@ -102,9 +102,18 @@ function normalizeProjectInfo(projectInfo, defaultProjectInfo) {
   };
 }
 
+
+function generateQuoteId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `quote-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function normalizeProjectQuote(rawQuote = {}) {
   return {
-    id: rawQuote.id || crypto.randomUUID(),
+    id: rawQuote.id || generateQuoteId(),
     projectNumber: String(rawQuote.projectNumber ?? '').trim(),
     projectName: String(rawQuote.projectName ?? '').trim(),
     sales: String(rawQuote.sales ?? '').trim(),
