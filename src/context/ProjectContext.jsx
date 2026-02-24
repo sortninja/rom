@@ -1,13 +1,24 @@
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { clearPersistedProjectState, loadPersistedProjectState, persistProjectState } from '../utils/persistence';
+import {
+  clearPersistedProjectState,
+  loadPersistedProjectState,
+  normalizePersistedRequirementsDocument,
+  persistProjectState,
+  preparePersistedProjectState,
+} from '../utils/persistence';
+import { SAMPLE_QUOTES } from '../utils/quotes';
 
 const ProjectContext = createContext();
 
 const initialState = {
   projectInfo: {
     name: 'Untitled Project',
+    sales: '',
     lead: '',
-    status: 'DRAFT',
+    contractAward: '',
+    goLive: '',
+    quoteDue: '',
+    status: 'working',
   },
   modules: {
     operational_data: { id: 'operational_data', selected: true, sourcing: 'In-House' },
@@ -66,7 +77,75 @@ const initialState = {
   assumptions: [],
   requirements: [],
   requirementsDocument: null,
+
+  projectQuotes: SAMPLE_QUOTES,
 };
+
+
+
+
+
+function normalizeProjectInfo(projectInfo, defaultProjectInfo) {
+  if (!projectInfo || typeof projectInfo !== 'object') {
+    return defaultProjectInfo;
+  }
+
+  return {
+    ...defaultProjectInfo,
+    name: String(projectInfo.name ?? defaultProjectInfo.name),
+    sales: String(projectInfo.sales ?? defaultProjectInfo.sales),
+    lead: String(projectInfo.lead ?? defaultProjectInfo.lead),
+    contractAward: String(projectInfo.contractAward ?? defaultProjectInfo.contractAward),
+    goLive: String(projectInfo.goLive ?? defaultProjectInfo.goLive),
+    quoteDue: String(projectInfo.quoteDue ?? defaultProjectInfo.quoteDue),
+    status: projectInfo.status === 'complete' ? 'complete' : 'working',
+  };
+}
+
+
+function generateQuoteId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `quote-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeProjectQuote(rawQuote = {}) {
+  return {
+    id: rawQuote.id || generateQuoteId(),
+    projectNumber: String(rawQuote.projectNumber ?? '').trim(),
+    projectName: String(rawQuote.projectName ?? '').trim(),
+    sales: String(rawQuote.sales ?? '').trim(),
+    leadEngineer: String(rawQuote.leadEngineer ?? '').trim(),
+    contractAward: String(rawQuote.contractAward ?? '').trim(),
+    goLive: String(rawQuote.goLive ?? '').trim(),
+    quoteDue: String(rawQuote.quoteDue ?? '').trim(),
+    status: rawQuote.status === 'complete' ? 'complete' : 'working',
+    pricingMode: rawQuote.pricingMode === 'auto' ? 'auto' : 'manual',
+    inHouse: Number(rawQuote.inHouse || 0),
+    buyout: Number(rawQuote.buyout || 0),
+    services: Number(rawQuote.services || 0),
+    modules: rawQuote.modules && typeof rawQuote.modules === 'object' ? rawQuote.modules : {},
+  };
+}
+
+function normalizeLoadedProjectState(state) {
+  const normalizedQuotes = Array.isArray(state.projectQuotes)
+    ? state.projectQuotes.filter((quote) => quote && typeof quote === 'object').map((quote) => normalizeProjectQuote(quote))
+    : [];
+
+  return {
+    ...state,
+    projectInfo: normalizeProjectInfo(state.projectInfo, initialState.projectInfo),
+    modules: state.modules && typeof state.modules === 'object' ? state.modules : initialState.modules,
+    moduleData: state.moduleData && typeof state.moduleData === 'object' ? state.moduleData : initialState.moduleData,
+    assumptions: Array.isArray(state.assumptions) ? state.assumptions : [],
+    requirements: Array.isArray(state.requirements) ? state.requirements : [],
+    requirementsDocument: normalizePersistedRequirementsDocument(state.requirementsDocument),
+    projectQuotes: normalizedQuotes,
+  };
+}
 
 function projectReducer(state, action) {
   switch (action.type) {
@@ -152,6 +231,70 @@ function projectReducer(state, action) {
       };
     }
 
+    case 'ADD_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: [...state.projectQuotes, action.payload],
+      };
+
+    case 'UPDATE_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => (
+          quote.id === action.payload.id ? { ...quote, ...action.payload.updates } : quote
+        )),
+      };
+
+    case 'REMOVE_PROJECT_QUOTE':
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.filter((quote) => quote.id !== action.payload),
+      };
+
+    case 'TOGGLE_PROJECT_QUOTE_MODULE': {
+      const { quoteId, moduleId, isSelected, defaultSourcing } = action.payload;
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => {
+          if (quote.id !== quoteId) return quote;
+
+          const nextModules = { ...(quote.modules || {}) };
+          if (isSelected) {
+            nextModules[moduleId] = {
+              id: moduleId,
+              selected: true,
+              sourcing: defaultSourcing,
+            };
+          } else {
+            delete nextModules[moduleId];
+          }
+
+          return { ...quote, modules: nextModules };
+        }),
+      };
+    }
+
+    case 'SET_PROJECT_QUOTE_MODULE_SOURCING': {
+      const { quoteId, moduleId, sourcing } = action.payload;
+      return {
+        ...state,
+        projectQuotes: state.projectQuotes.map((quote) => {
+          if (quote.id !== quoteId || !quote.modules?.[moduleId]) return quote;
+
+          return {
+            ...quote,
+            modules: {
+              ...quote.modules,
+              [moduleId]: {
+                ...quote.modules[moduleId],
+                sourcing,
+              },
+            },
+          };
+        }),
+      };
+    }
+
     case 'RESET_PROJECT_STATE':
       return initialState;
     // Add more reducers as we implement features
@@ -161,11 +304,15 @@ function projectReducer(state, action) {
 }
 
 export function ProjectProvider({ children }) {
-  const [state, dispatch] = useReducer(projectReducer, initialState, loadPersistedProjectState);
+  const [state, dispatch] = useReducer(
+    projectReducer,
+    initialState,
+    (defaultState) => loadPersistedProjectState(defaultState, { normalizeState: normalizeLoadedProjectState })
+  );
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      persistProjectState(state);
+      persistProjectState(state, { prepareState: preparePersistedProjectState });
     }, 150);
 
     return () => window.clearTimeout(timeoutId);
