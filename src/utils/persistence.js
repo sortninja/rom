@@ -5,6 +5,13 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+
+function toSafeNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+
 function deepMerge(defaultValue, persistedValue) {
   if (Array.isArray(defaultValue)) {
     return Array.isArray(persistedValue) ? persistedValue : defaultValue;
@@ -110,8 +117,8 @@ export function normalizePersistedRequirementsDocument(requirementsDocument) {
   const normalized = {
     name: requirementsDocument.name,
     type: typeof requirementsDocument.type === 'string' ? requirementsDocument.type : '',
-    size: Number(requirementsDocument.size || 0),
-    lastModified: Number(requirementsDocument.lastModified || 0),
+    size: Math.max(0, toSafeNumber(requirementsDocument.size, 0)),
+    lastModified: Math.max(0, toSafeNumber(requirementsDocument.lastModified, 0)),
   };
 
   if (typeof requirementsDocument.textPreview === 'string') {

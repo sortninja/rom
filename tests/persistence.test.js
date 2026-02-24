@@ -288,17 +288,29 @@ test('normalizePersistedRequirementsDocument coerces persisted document shape sa
 
   const normalized = normalizePersistedRequirementsDocument({
     name: 'reqs.pdf',
-    size: '2048',
+    size: '-2048',
     type: 42,
-    lastModified: '1700000123',
+    lastModified: 'not-a-number',
     persistedAs: 'file-metadata',
   });
 
   assert.deepEqual(normalized, {
     name: 'reqs.pdf',
-    size: 2048,
+    size: 0,
     type: '',
-    lastModified: 1700000123,
+    lastModified: 0,
     persistedAs: 'file-metadata',
   });
+});
+
+
+test('normalizePersistedRequirementsDocument preserves textPreview when valid', () => {
+  const normalized = normalizePersistedRequirementsDocument({
+    name: 'reqs.pdf',
+    size: 10,
+    type: 'application/pdf',
+    textPreview: 'line one',
+  });
+
+  assert.equal(normalized.textPreview, 'line one');
 });
